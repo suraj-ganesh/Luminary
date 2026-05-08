@@ -62,8 +62,8 @@ async function processBatch(batch: any[]) {
         const aiData = JSON.parse(jsonMatch[0]);
         return {
           ...v,
-          aiExplanation: aiData.explanation,
-          aiFix: aiData.fix
+          ai_explanation: aiData.explanation,
+          ai_fix: aiData.fix
         };
       }
       return v;

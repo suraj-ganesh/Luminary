@@ -77,7 +77,7 @@ export default function ReportPage() {
       <div className="min-h-screen bg-[#e3e2c3] flex flex-col items-center justify-center p-6 text-center font-poppins">
         <div className="glass-3d-panel !p-16 max-w-lg space-y-8 border-red-500/20">
            <AlertCircle className="h-10 w-10 text-red-600 mx-auto" />
-           <h2 className="text-3xl font-bold tracking-tight text-[#1a1a1a]">Archive Link Broken</h2>
+           <h2 className="text-3xl font-bold tracking-tight text-[#1a1a1a]">Report Not Found</h2>
            <p className="text-muted-foreground leading-relaxed font-light">{error}</p>
            <button onClick={() => router.push("/")} className="glass-3d-button w-full h-14 !rounded-full uppercase tracking-widest text-[11px]">Return to Base</button>
         </div>

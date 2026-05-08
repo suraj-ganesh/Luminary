@@ -75,7 +75,7 @@ router.post('/', async (req: Request, res: Response) => {
     };
 
     // 4. Save to Supabase if userId is provided
-    let savedScanId = null;
+    let savedScanId: string | null = null;
     if (userId) {
       const { data: savedData, error } = await supabase
         .from('scans')
@@ -97,6 +97,50 @@ router.post('/', async (req: Request, res: Response) => {
       } else {
         savedScanId = savedData.id;
         console.log('Scan saved to Supabase for user:', userId, 'ID:', savedScanId);
+
+        // --- Webhook Delivery Engine ---
+        supabase
+          .from('webhooks')
+          .select('url')
+          .eq('user_id', userId)
+          .eq('active', true)
+          .contains('events', ['scan.completed'])
+          .then(({ data: webhooks, error: webhookError }) => {
+             if (webhookError) {
+               console.error('Error fetching webhooks:', webhookError);
+               return;
+             }
+             if (webhooks && webhooks.length > 0) {
+               const payload = {
+                 event: 'scan.completed',
+                 scanId: savedScanId,
+                 url,
+                 score,
+                 timestamp: new Date().toISOString()
+               };
+               webhooks.forEach(wh => {
+                 fetch(wh.url, {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify(payload)
+                 }).then(r => console.log(`Webhook delivered to ${wh.url}: Status ${r.status}`))
+                   .catch(e => console.error(`Webhook delivery failed for ${wh.url}:`, e));
+               });
+             }
+          });
+
+        // --- In-App Notification Center ---
+        supabase
+          .from('notifications')
+          .insert([{
+             user_id: userId,
+             title: 'Scan Complete',
+             body: `Audit finished for ${url} with a score of ${score}%`,
+             type: score >= 90 ? 'success' : score >= 70 ? 'info' : 'warning'
+          }])
+          .then(({ error: notifError }) => {
+            if (notifError) console.error('Failed to create notification:', notifError);
+          });
       }
     }
     
@@ -134,6 +178,44 @@ router.get('/:id', async (req: Request, res: Response) => {
       violations: typeof data.results === 'string' ? JSON.parse(data.results) : data.results,
       created_at: data.created_at
     });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/scan/bulk/site
+router.delete('/bulk/site', async (req: Request, res: Response) => {
+  try {
+    const { url, userId } = req.body;
+    if (!url || !userId) return res.status(400).json({ error: 'URL and User ID required' });
+
+    const { error } = await supabase
+      .from('scans')
+      .delete()
+      .eq('user_id', userId)
+      .eq('url', url);
+
+    if (error) return res.status(500).json({ error: 'Failed to delete scans' });
+    return res.status(200).json({ message: 'Scans deleted successfully' });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/scan/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('scans')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to delete scan' });
+    }
+
+    return res.status(200).json({ message: 'Scan deleted successfully' });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

@@ -17,9 +17,32 @@ import {
   Shield,
   Trash2,
   CheckCircle2,
-  UserPlus
+  UserPlus,
+  Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import NotificationBell from "../../components/NotificationBell";
+
+// Custom Toast Component
+const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error' | 'info', onClose: () => void }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, y: 20 }}
+      className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 border ${
+        type === 'success' ? 'bg-green-500 text-white border-green-600' : 
+        type === 'error' ? 'bg-red-500 text-white border-red-600' : 
+        'bg-white text-black border-black/10'
+      }`}
+    >
+      {type === 'success' && <CheckCircle2 className="h-4 w-4" />}
+      {type === 'error' && <Trash2 className="h-4 w-4" />}
+      {type === 'info' && <Shield className="h-4 w-4" />}
+      <span className="text-[11px] font-bold uppercase tracking-widest">{message}</span>
+    </motion.div>
+  );
+};
 
 export default function TeamPage() {
   const [user, setUser] = useState<any>(null);
@@ -30,6 +53,19 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [activeOrg, setActiveOrg] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  
+  // Toast State
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+
+  // Confirm Modal State
+  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, userId: string}>({ isOpen: false, userId: '' });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const router = useRouter();
 
@@ -45,6 +81,27 @@ export default function TeamPage() {
     };
     checkUser();
   }, [router]);
+
+  useEffect(() => {
+    if (activeOrg) {
+      fetchMembers(activeOrg.id);
+    }
+  }, [activeOrg]);
+
+  const fetchMembers = async (orgId: string) => {
+    setIsLoadingMembers(true);
+    try {
+      const res = await fetch(`http://localhost:8080/api/orgs/${orgId}/members`);
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch members:", error);
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
 
   const fetchOrganizations = async (userId: string) => {
     try {
@@ -77,9 +134,11 @@ export default function TeamPage() {
         setOrganizations([...organizations, { ...data.organization, userRole: 'admin' }]);
         setNewOrgName("");
         if (!activeOrg) setActiveOrg(data.organization);
+        showToast("Organization created successfully", 'success');
       }
     } catch (error) {
       console.error("Failed to create organization:", error);
+      showToast("Failed to create organization", 'error');
     } finally {
       setIsCreating(false);
     }
@@ -95,16 +154,63 @@ export default function TeamPage() {
         body: JSON.stringify({ orgId: activeOrg.id, email: inviteEmail, role: 'viewer' })
       });
       if (res.ok) {
-        alert("Member invited successfully!");
+        showToast("Member invited successfully!", 'success');
         setInviteEmail("");
+        fetchMembers(activeOrg.id); // Refresh members
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to invite member");
+        showToast(data.error || "Failed to invite member", 'error');
       }
     } catch (error) {
       console.error("Failed to invite member:", error);
+      showToast("Failed to invite member", 'error');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const executeRemoveMember = async () => {
+    const userId = confirmDelete.userId;
+    setConfirmDelete({ isOpen: false, userId: '' });
+    if (!activeOrg || !user || !userId) return;
+
+    try {
+      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId: user.id })
+      });
+      if (res.ok) {
+        setMembers(members.filter(m => m.user_id !== userId));
+        showToast("Member removed", 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to remove member", 'error');
+      }
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+      showToast("Failed to remove member", 'error');
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: string) => {
+    if (!activeOrg || !user) return;
+    try {
+      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId: user.id, role: newRole })
+      });
+      if (res.ok) {
+        setMembers(members.map(m => m.user_id === userId ? { ...m, role: newRole } : m));
+        showToast("Role updated", 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to update role", 'error');
+      }
+    } catch (error) {
+      console.error("Failed to update role:", error);
+      showToast("Failed to update role", 'error');
     }
   };
 
@@ -114,7 +220,46 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#e3e2c3] text-[#1a1a1a] flex overflow-hidden font-poppins font-light">
+    <div className="min-h-screen bg-[#e3e2c3] text-[#1a1a1a] flex overflow-hidden font-poppins font-light relative">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </AnimatePresence>
+
+      {/* Confirm Modal */}
+      <AnimatePresence>
+        {confirmDelete.isOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mb-6">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight mb-2">Remove Member?</h3>
+              <p className="text-muted-foreground text-sm mb-8">Are you sure you want to remove this member from the organization? They will lose all access to team scans.</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDelete({ isOpen: false, userId: '' })}
+                  className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={executeRemoveMember}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg shadow-red-500/20"
+                >
+                  Remove
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <aside className="w-80 border-r border-black/5 bg-white/60 backdrop-blur-3xl p-10 flex flex-col gap-16 relative z-20 shadow-xl shadow-black/[0.02]">
         <Link href="/" className="flex items-center gap-4 group px-2">
@@ -145,6 +290,10 @@ export default function TeamPage() {
               <UserIcon className="h-5 w-5 group-hover:text-black transition-colors" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Profile</span>
            </Link>
+           <Link href="/settings" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
+              <Settings className="h-5 w-5 group-hover:text-black transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Settings</span>
+           </Link>
         </nav>
 
         <div className="pt-10 border-t border-black/5">
@@ -157,6 +306,7 @@ export default function TeamPage() {
                  <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em]">Operative Level 3</p>
               </div>
            </div>
+           {user?.id && <NotificationBell userId={user.id} />}
            <button 
              onClick={handleLogout}
              className="w-full flex items-center gap-4 px-6 py-3 rounded-2xl hover:bg-red-500/5 text-muted-foreground hover:text-red-600 transition-all group"
@@ -283,23 +433,55 @@ export default function TeamPage() {
                     </div>
                   )}
 
-                  {/* Placeholder for Members List */}
+                  {/* Active Members List */}
                   <div className="glass-3d-panel p-8">
                      <h3 className="text-lg font-bold mb-6">Active Members</h3>
                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-black/5">
-                           <div className="flex items-center gap-4">
-                              <div className="h-10 w-10 rounded-xl bg-black text-white flex items-center justify-center font-bold text-xs uppercase">
-                                 {user?.email?.charAt(0)}
-                              </div>
-                              <div>
-                                 <p className="text-sm font-bold">{user?.email} <span className="text-[10px] text-muted-foreground font-normal ml-2">(You)</span></p>
-                                 <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{activeOrg.userRole}</p>
-                              </div>
-                           </div>
-                           <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        </div>
-                        <p className="text-center py-6 text-[10px] text-muted-foreground uppercase tracking-[0.2em]">More member management coming soon</p>
+                        {isLoadingMembers ? (
+                          <div className="py-6 flex justify-center"><div className="animate-pulse flex items-center gap-2"><div className="h-4 w-4 bg-black/20 rounded-full"></div><div className="h-4 w-4 bg-black/20 rounded-full"></div><div className="h-4 w-4 bg-black/20 rounded-full"></div></div></div>
+                        ) : members.length === 0 ? (
+                          <p className="text-center py-6 text-[10px] text-muted-foreground uppercase tracking-[0.2em]">No members found</p>
+                        ) : (
+                          members.map(member => (
+                            <div key={member.user_id} className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-black/5 group">
+                               <div className="flex items-center gap-4">
+                                  <div className="h-10 w-10 rounded-xl bg-black text-white flex items-center justify-center font-bold text-xs uppercase">
+                                     {member.email?.charAt(0)}
+                                  </div>
+                                  <div>
+                                     <p className="text-sm font-bold">{member.email} {member.user_id === user?.id && <span className="text-[10px] text-muted-foreground font-normal ml-2">(You)</span>}</p>
+                                     <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{member.role}</p>
+                                  </div>
+                               </div>
+                               
+                               <div className="flex items-center gap-3">
+                                 {member.user_id === user?.id ? (
+                                   <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                 ) : activeOrg?.userRole === 'admin' ? (
+                                   <>
+                                     <select 
+                                       value={member.role}
+                                       onChange={(e) => handleUpdateRole(member.user_id, e.target.value)}
+                                       className="bg-white/60 border border-black/5 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest outline-none cursor-pointer"
+                                     >
+                                       <option value="admin">Admin</option>
+                                       <option value="editor">Editor</option>
+                                       <option value="viewer">Viewer</option>
+                                     </select>
+                                     <button 
+                                       onClick={() => setConfirmDelete({ isOpen: true, userId: member.user_id })}
+                                       className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors"
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </button>
+                                   </>
+                                 ) : (
+                                   <Shield className="h-4 w-4 text-black/20" />
+                                 )}
+                               </div>
+                            </div>
+                          ))
+                        )}
                      </div>
                   </div>
 

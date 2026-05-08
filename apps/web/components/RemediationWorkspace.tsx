@@ -35,7 +35,7 @@ export default function RemediationWorkspace({ isOpen, onClose, violation }: Rem
   const fetchRemediation = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/remediation/generate`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/remediation/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -158,7 +158,7 @@ export default function RemediationWorkspace({ isOpen, onClose, violation }: Rem
                                </button>
                             </div>
                             <pre className="text-xs font-mono text-[#3b83f5] leading-relaxed whitespace-pre-wrap">
-                               {remediation?.fixedCode || violation.ai_fix || (loading ? "" : "// Select a node to begin refactor...")}
+                               {remediation?.fixedCode || violation.ai_fix || (loading ? "" : (remediation?.error ? `// Error: ${remediation.error}\n// Details: ${remediation.message || "Unknown error"}\n${remediation.details ? `// Server Info: ${JSON.stringify(remediation.details, null, 2)}` : ""}` : "// Select a node to begin refactor..."))}
                             </pre>
                          </div>
                       </div>

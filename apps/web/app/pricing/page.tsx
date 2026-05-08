@@ -14,9 +14,12 @@ import {
   Check, 
   Shield, 
   Zap, 
-  Sparkles
+  Sparkles,
+  Settings,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
+import NotificationBell from "../../components/NotificationBell";
 
 export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
@@ -141,6 +144,10 @@ export default function PricingPage() {
               <LayoutDashboard className="h-5 w-5 group-hover:text-black transition-colors" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Command Center</span>
            </Link>
+           <Link href="/team" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
+              <Users className="h-5 w-5 group-hover:text-black transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Team Workspace</span>
+           </Link>
            <Link href="/developer" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
               <Code className="h-5 w-5 group-hover:text-black transition-colors" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Developer API</span>
@@ -152,6 +159,10 @@ export default function PricingPage() {
            <Link href="/profile" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
               <UserIcon className="h-5 w-5 group-hover:text-black transition-colors" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Profile</span>
+           </Link>
+           <Link href="/settings" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
+              <Settings className="h-5 w-5 group-hover:text-black transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Settings</span>
            </Link>
         </nav>
 
@@ -165,6 +176,7 @@ export default function PricingPage() {
                  <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em]">Operative Level 3</p>
               </div>
            </div>
+           {user?.id && <NotificationBell userId={user.id} />}
            <button 
              onClick={handleLogout}
              className="w-full flex items-center gap-4 px-6 py-3 rounded-2xl hover:bg-red-500/5 text-muted-foreground hover:text-red-600 transition-all group"

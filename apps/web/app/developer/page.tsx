@@ -24,6 +24,7 @@ import {
   Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import NotificationBell from "../../components/NotificationBell";
 
 export default function DeveloperPage() {
   const [user, setUser] = useState<any>(null);
@@ -147,6 +148,10 @@ export default function DeveloperPage() {
               <UserIcon className="h-5 w-5 group-hover:text-black transition-colors" />
               <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Profile</span>
            </Link>
+           <Link href="/settings" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
+              <Settings className="h-5 w-5 group-hover:text-black transition-colors" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Settings</span>
+           </Link>
         </nav>
 
         <div className="pt-10 border-t border-black/5">
@@ -159,6 +164,7 @@ export default function DeveloperPage() {
                  <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em]">Operative Level 3</p>
               </div>
            </div>
+           {user?.id && <NotificationBell userId={user.id} />}
            <button 
              onClick={handleLogout}
              className="w-full flex items-center gap-4 px-6 py-3 rounded-2xl hover:bg-red-500/5 text-muted-foreground hover:text-red-600 transition-all group"

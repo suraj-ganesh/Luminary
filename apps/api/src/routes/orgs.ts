@@ -163,4 +163,77 @@ router.delete('/:orgId/members/:userId', async (req: Request, res: Response) => 
   }
 });
 
+// Get members for an organization
+router.get('/:orgId/members', async (req: Request, res: Response) => {
+  try {
+    const { orgId } = req.params;
+
+    // Fetch members for the org
+    const { data: members, error } = await supabase
+      .from('organization_members')
+      .select('*')
+      .eq('org_id', orgId);
+
+    if (error) throw error;
+
+    // Fetch user details from auth admin to map emails
+    const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
+    if (userError) throw userError;
+
+    // Map emails to members
+    const membersWithDetails = members.map((m: any) => {
+      const user = users.find(u => u.id === m.user_id);
+      return {
+        ...m,
+        email: user?.email || 'Unknown',
+        username: user?.user_metadata?.username || 'Unknown'
+      };
+    });
+
+    return res.status(200).json(membersWithDetails);
+  } catch (error: any) {
+    console.error('List members error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Update a member's role
+router.patch('/:orgId/members/:userId', async (req: Request, res: Response) => {
+  try {
+    const { orgId, userId } = req.params;
+    const { role, requesterId } = req.body;
+
+    if (!role || !['admin', 'editor', 'viewer'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role provided' });
+    }
+
+    // Basic check: Is the requester an admin?
+    const { data: requester, error: reqError } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('org_id', orgId)
+      .eq('user_id', requesterId)
+      .single();
+
+    if (reqError || requester.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can update roles' });
+    }
+
+    const { data, error } = await supabase
+      .from('organization_members')
+      .update({ role })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return res.status(200).json({ message: 'Role updated successfully', member: data });
+  } catch (error: any) {
+    console.error('Update role error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
