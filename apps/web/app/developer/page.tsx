@@ -29,9 +29,12 @@ import NotificationBell from "../../components/NotificationBell";
 export default function DeveloperPage() {
   const [user, setUser] = useState<any>(null);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newWebhookUrl, setNewWebhookUrl] = useState("");
   
   // Modal state for showing the full key once
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function DeveloperPage() {
       } else {
         setUser(user);
         fetchKeys(user.id);
+        fetchWebhooks(user.id);
       }
     };
     checkUser();
@@ -61,6 +65,18 @@ export default function DeveloperPage() {
       }
     } catch (error) {
       console.error("Failed to fetch keys:", error);
+    }
+  };
+
+  const fetchWebhooks = async (userId: string) => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/webhooks/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWebhooks(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch webhooks:", error);
     } finally {
       setLoading(false);
     }
@@ -88,6 +104,33 @@ export default function DeveloperPage() {
     }
   };
 
+  const handleRegisterWebhook = async () => {
+    if (!newWebhookUrl || !user) return;
+    setIsRegisteringWebhook(true);
+    try {
+      const res = await fetch('http://localhost:8080/api/webhooks/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          url: newWebhookUrl,
+          events: ['scan.completed']
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // The backend returns { message: '...', webhook: { ... } }
+        const webhook = data.webhook || data;
+        setWebhooks([webhook, ...webhooks]);
+        setNewWebhookUrl("");
+      }
+    } catch (error) {
+      console.error("Failed to register webhook:", error);
+    } finally {
+      setIsRegisteringWebhook(false);
+    }
+  };
+
   const handleRevokeKey = async (id: string) => {
     if (!confirm("Are you sure you want to revoke this API key? This action cannot be undone.")) return;
     try {
@@ -101,6 +144,20 @@ export default function DeveloperPage() {
       }
     } catch (error) {
       console.error("Failed to revoke key:", error);
+    }
+  };
+
+  const handleDeleteWebhook = async (id: string) => {
+    if (!confirm("Delete this webhook listener?")) return;
+    try {
+      const res = await fetch(`http://localhost:8080/api/webhooks/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setWebhooks(webhooks.filter(w => w.id !== id));
+      }
+    } catch (error) {
+      console.error("Failed to delete webhook:", error);
     }
   };
 
@@ -194,7 +251,7 @@ export default function DeveloperPage() {
             </div>
           </div>
         ) : (
-        <div className="max-w-4xl mx-auto space-y-16">
+        <div className="max-w-4xl mx-auto space-y-16 pb-20">
           {/* Top Bar */}
           <div className="space-y-4">
              <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-white/50 border border-white shadow-sm mb-2">
@@ -235,7 +292,7 @@ export default function DeveloperPage() {
                   </div>
                 ) : (
                   apiKeys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between p-6 bg-white/50 border border-black/5 rounded-3xl hover:bg-white transition-colors">
+                    <div key={key.id} className="flex items-center justify-between p-6 bg-white/50 border border-black/5 rounded-3xl hover:bg-white transition-colors group/key">
                       <div>
                         <h4 className="font-bold text-lg">{key.name}</h4>
                         <div className="flex items-center gap-4 mt-2">
@@ -247,8 +304,67 @@ export default function DeveloperPage() {
                       </div>
                       <button 
                         onClick={() => handleRevokeKey(key.id)}
-                        className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 transition-colors"
+                        className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 transition-colors opacity-0 group-hover/key:opacity-100"
                         title="Revoke Key"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Webhooks Section */}
+          <div className="space-y-8">
+            <h2 className="text-2xl font-light tracking-tighter uppercase flex items-center gap-4 border-b border-black/5 pb-6">
+              <TerminalSquare className="h-6 w-6 text-black/40" /> Outbound Webhooks
+            </h2>
+
+            <div className="glass-3d-panel p-8">
+              <div className="flex gap-4 mb-10">
+                <input 
+                  value={newWebhookUrl}
+                  onChange={(e) => setNewWebhookUrl(e.target.value)}
+                  className="flex-1 h-14 px-6 bg-white/40 border border-black/5 rounded-full text-[11px] font-bold uppercase tracking-widest outline-none focus:bg-white transition-all shadow-sm" 
+                  placeholder="https://your-server.com/webhook" 
+                />
+                <button 
+                  onClick={handleRegisterWebhook}
+                  disabled={isRegisteringWebhook || !newWebhookUrl}
+                  className="glass-3d-button h-14 px-8 text-[10px] font-bold uppercase tracking-widest !rounded-full disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isRegisteringWebhook ? 'Registering...' : 'Add Webhook'}
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {webhooks.length === 0 ? (
+                  <div className="py-12 text-center border-2 border-dashed border-black/5 rounded-3xl">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">No active webhooks configured.</p>
+                  </div>
+                ) : (
+                  webhooks.map((webhook) => (
+                    <div key={webhook.id} className="flex items-center justify-between p-6 bg-white/50 border border-black/5 rounded-3xl hover:bg-white transition-colors group/hook">
+                      <div className="flex-1 min-w-0 mr-4">
+                        <div className="flex items-center gap-3">
+                           <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                           <p className="font-bold text-[13px] truncate">{webhook.url}</p>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
+                           {webhook.events?.map((e: string) => (
+                             <span key={e} className="text-[9px] font-black uppercase tracking-widest bg-black text-white px-2 py-0.5 rounded-full">{e}</span>
+                           ))}
+                           <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                             Active since {new Date(webhook.created_at).toLocaleDateString()}
+                           </span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteWebhook(webhook.id)}
+                        className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 transition-colors opacity-0 group-hover/hook:opacity-100"
+                        title="Delete Webhook"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -262,7 +378,7 @@ export default function DeveloperPage() {
           {/* Quick Start Documentation */}
           <div className="space-y-8">
             <h2 className="text-2xl font-light tracking-tighter uppercase flex items-center gap-4 border-b border-black/5 pb-6">
-              <TerminalSquare className="h-6 w-6 text-black/40" /> Quick Start
+              <Code className="h-6 w-6 text-black/40" /> Developer Guide
             </h2>
 
             <div className="glass-3d-panel p-8 overflow-hidden relative group">

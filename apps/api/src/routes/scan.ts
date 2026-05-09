@@ -99,17 +99,20 @@ router.post('/', async (req: Request, res: Response) => {
         console.log('Scan saved to Supabase for user:', userId, 'ID:', savedScanId);
 
         // --- Webhook Delivery Engine ---
+        console.log(`🔍 Checking for webhooks for user ${userId}...`);
         supabase
           .from('webhooks')
           .select('url')
           .eq('user_id', userId)
           .eq('active', true)
-          .contains('events', ['scan.completed'])
           .then(({ data: webhooks, error: webhookError }) => {
              if (webhookError) {
                console.error('Error fetching webhooks:', webhookError);
                return;
              }
+             
+             console.log(`📡 Found ${webhooks?.length || 0} active webhooks for user ${userId}`);
+             
              if (webhooks && webhooks.length > 0) {
                const payload = {
                  event: 'scan.completed',
@@ -119,12 +122,13 @@ router.post('/', async (req: Request, res: Response) => {
                  timestamp: new Date().toISOString()
                };
                webhooks.forEach(wh => {
+                 console.log(`📤 Dispatching webhook to ${wh.url}...`);
                  fetch(wh.url, {
                    method: 'POST',
                    headers: { 'Content-Type': 'application/json' },
                    body: JSON.stringify(payload)
-                 }).then(r => console.log(`Webhook delivered to ${wh.url}: Status ${r.status}`))
-                   .catch(e => console.error(`Webhook delivery failed for ${wh.url}:`, e));
+                 }).then(r => console.log(`✅ Webhook delivered to ${wh.url}: Status ${r.status}`))
+                   .catch(e => console.error(`❌ Webhook delivery failed for ${wh.url}:`, e));
                });
              }
           });

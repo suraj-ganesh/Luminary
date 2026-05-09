@@ -23,7 +23,8 @@ router.post('/register', async (req: Request, res: Response) => {
           user_id: userId, 
           org_id: orgId || null, 
           url, 
-          events: events || ['scan.completed'] 
+          events: events || ['scan.completed'],
+          active: true
         }
       ])
       .select()
