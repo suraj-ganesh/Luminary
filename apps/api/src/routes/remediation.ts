@@ -3,19 +3,38 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = Router();
 
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
 // Generate AI Remediation for a specific violation
 router.post('/generate', async (req, res) => {
   const { html, violation, context } = req.body;
+  
+  const key = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
 
-  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+  // Diagnostic: List available models
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${key}`);
+    const data = await response.json();
+    console.log('--- Available Models for your NEWEST API Key ---');
+    if (data.models) {
+      data.models.forEach((m: any) => console.log(`- ${m.name.replace('models/', '')}`));
+    } else {
+      console.log('No models found or error:', JSON.stringify(data));
+    }
+    console.log('----------------------------------------------');
+  } catch (e) {
+    console.error('Failed to list models:', e);
+  }
+
+  console.log('--- Remediation Request Received ---');
+  console.log('Violation:', violation);
+  console.log('HTML Length:', html?.length || 0);
+
+  if (!key) {
+    console.error('API Key Missing');
     return res.status(401).json({ error: 'AI Engine Configuration Error', message: 'No Gemini API Key found in server environment.' });
   }
 
   if (!html || !violation) {
+    console.error('Missing Required Fields');
     return res.status(400).json({ error: 'Missing html or violation details' });
   }
 
@@ -44,9 +63,53 @@ router.post('/generate', async (req, res) => {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text().trim();
-    console.log('Gemini Response:', responseText);
+    console.log('Calling Gemini API (with Fallback Logic)...');
+    
+    // List of models to try in order of likelihood to work
+    const modelsToTry = [
+      { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
+      { name: 'gemini-2.5-flash', version: 'v1beta' },
+      { name: 'gemini-2.5-pro', version: 'v1beta' },
+      { name: 'gemini-2.0-flash-lite-001', version: 'v1beta' },
+      { name: 'gemini-2.0-flash-001', version: 'v1beta' }
+    ];
+
+    let lastError = null;
+    let successResult = null;
+
+    for (const modelConfig of modelsToTry) {
+      try {
+        console.log(`Trying model: ${modelConfig.name} (${modelConfig.version})...`);
+        const apiResponse = await fetch(`https://generativelanguage.googleapis.com/${modelConfig.version}/models/${modelConfig.name}:generateContent?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        if (apiResponse.ok) {
+          successResult = await apiResponse.json();
+          console.log(`Successfully generated with ${modelConfig.name}!`);
+          break;
+        } else {
+          const errorData = await apiResponse.json();
+          const errorMsg = errorData.error?.message || `Status ${apiResponse.status}`;
+          console.warn(`${modelConfig.name} failed: ${errorMsg}`);
+          lastError = errorMsg;
+        }
+      } catch (e: any) {
+        console.error(`Fetch error for ${modelConfig.name}:`, e.message);
+        lastError = e.message;
+      }
+    }
+
+    if (!successResult) {
+      throw new Error(`All Gemini models failed. Last error: ${lastError}`);
+    }
+
+    const responseText = successResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    console.log('Gemini Raw Response:', responseText);
     
     // Parse the JSON out of the response, handling potential markdown formatting
     let jsonStr = responseText;
@@ -67,26 +130,30 @@ router.post('/generate', async (req, res) => {
         impact: parsed.impact || "Medium"
       });
     } catch (parseError: any) {
-      console.error('JSON Parse Error:', parseError, 'Original text:', responseText);
+      console.error('JSON Parse Error:', parseError.message);
       res.status(500).json({ 
         error: 'Failed to parse AI response', 
-        message: parseError.message,
+        message: parseError.message || 'Malformed JSON returned from AI',
         raw: responseText 
       });
     }
   } catch (error: any) {
-    console.error('Remediation error:', error);
+    console.error('AI Generation Error:', error);
+    
+    // Create a safe serializable error object
+    const errorDetails = {
+      message: error?.message || String(error),
+      name: error?.name || 'Error',
+      code: error?.code,
+      status: error?.status,
+      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+      raw: String(error)
+    };
+
     res.status(500).json({ 
       error: 'Failed to generate remediation', 
-      message: error.message || 'No error message provided',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      details: {
-        name: error.name,
-        message: error.message,
-        status: error.status,
-        code: error.code,
-        ...(error.response ? { responseData: error.response.data } : {})
-      }
+      message: errorDetails.message,
+      details: errorDetails
     });
   }
 });
