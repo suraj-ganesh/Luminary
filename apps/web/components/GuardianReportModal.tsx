@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, TrendingDown, Calendar, ShieldCheck, Activity } from "lucide-react";
 import TrendChart from "./TrendChart";
+import dynamic from "next/dynamic";
+const ExportPDF = dynamic(() => import("./ExportPDF"), { ssr: false });
 
 interface GuardianReportModalProps {
   isOpen: boolean;
@@ -11,9 +13,10 @@ interface GuardianReportModalProps {
   siteId: string;
   url: string;
   currentScore: number;
+  scans?: any[];
 }
 
-export default function GuardianReportModal({ isOpen, onClose, siteId, url, currentScore }: GuardianReportModalProps) {
+export default function GuardianReportModal({ isOpen, onClose, siteId, url, currentScore, scans = [] }: GuardianReportModalProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -127,9 +130,11 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
               >
                 Dismiss
               </button>
-              <button className="px-8 py-3 rounded-full bg-black text-white font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-black/20 hover:scale-105 transition-all">
-                Download PDF History
-              </button>
+              <ExportPDF 
+                url={url} 
+                results={{ score: currentScore, violations: scans[0]?.results ? JSON.parse(scans[0].results) : [] }} 
+                history={history}
+              />
             </div>
           </motion.div>
         </div>

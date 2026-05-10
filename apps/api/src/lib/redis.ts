@@ -7,12 +7,13 @@ if (!redisUrl) {
 }
 
 // Upstash Redis requires TLS - convert redis:// to rediss:// if needed
-const connectionUrl = (redisUrl || 'redis://localhost:6379').replace('redis://', 'rediss://');
+const isLocal = !redisUrl || redisUrl.includes('localhost') || redisUrl.includes('127.0.0.1');
+const connectionUrl = (redisUrl || 'redis://localhost:6379').replace('redis://', isLocal ? 'redis://' : 'rediss://');
 const isUpstash = connectionUrl.includes('upstash.io');
 
 export const redisConnection = new Redis(connectionUrl, {
   maxRetriesPerRequest: null, // Required for BullMQ
-  tls: isUpstash ? {} : undefined,
+  tls: (isUpstash || (!isLocal && connectionUrl.startsWith('rediss'))) ? {} : undefined,
 });
 
 redisConnection.on('error', (err) => {

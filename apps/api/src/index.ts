@@ -18,6 +18,7 @@ import remediationRouter from './routes/remediation';
 import notificationsRouter from './routes/notifications';
 import historyRouter from './routes/history';
 import './queues/scanQueue'; // This starts the worker
+console.log('Scan Worker initialized and listening for jobs...');
 
 export const supabase = createClient(
   process.env.SUPABASE_URL!,

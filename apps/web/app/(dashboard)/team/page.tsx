@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,7 +21,7 @@ import {
   Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import NotificationBell from "../../components/NotificationBell";
+import NotificationBell from "../../../components/NotificationBell";
 
 // Custom Toast Component
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error' | 'info', onClose: () => void }) => {
@@ -220,7 +220,7 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#e3e2c3] text-[#1a1a1a] flex overflow-hidden font-poppins font-light relative">
+    <>
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -259,66 +259,6 @@ export default function TeamPage() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* Sidebar */}
-      <aside className="w-80 border-r border-black/5 bg-white/60 backdrop-blur-3xl p-10 flex flex-col gap-16 relative z-20 shadow-xl shadow-black/[0.02]">
-        <Link href="/" className="flex items-center gap-4 group px-2">
-          <div className="h-12 w-12 flex items-center justify-center transition-transform duration-1000 group-hover:scale-110">
-             <Image src="/logo.png" alt="Logo" width={60} height={60} className="scale-[2.8]" />
-          </div>
-          <span className="font-bold text-2xl tracking-tight text-gradient">Luminary</span>
-        </Link>
-
-        <nav className="flex-1 space-y-3">
-           <Link href="/dashboard" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
-              <LayoutDashboard className="h-5 w-5 group-hover:text-black transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Command Center</span>
-           </Link>
-           <button className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl bg-black text-white shadow-2xl shadow-black/20 group transition-all">
-              <Users className="h-5 w-5" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Team Workspace</span>
-           </button>
-           <Link href="/developer" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
-              <Code className="h-5 w-5 group-hover:text-black transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Developer API</span>
-           </Link>
-           <Link href="/pricing" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
-              <CreditCard className="h-5 w-5 group-hover:text-black transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Pricing</span>
-           </Link>
-           <Link href="/profile" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
-              <UserIcon className="h-5 w-5 group-hover:text-black transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Profile</span>
-           </Link>
-           <Link href="/settings" className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl hover:bg-black/5 transition-all text-muted-foreground hover:text-black group">
-              <Settings className="h-5 w-5 group-hover:text-black transition-colors" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em]">Settings</span>
-           </Link>
-        </nav>
-
-        <div className="pt-10 border-t border-black/5">
-           <div className="flex items-center gap-4 px-5 py-4 mb-8 bg-black/5 rounded-3xl">
-              <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-[#3b83f5] to-[#2ecac5] flex items-center justify-center font-black text-white shadow-md">
-                 {(user?.user_metadata?.username || user?.email)?.charAt(0).toUpperCase()}
-              </div>
-              <div className="overflow-hidden">
-                 <p className="text-[11px] font-bold uppercase tracking-widest truncate">{user?.user_metadata?.username || user?.email?.split('@')[0]}</p>
-                 <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em]">Operative Level 3</p>
-              </div>
-           </div>
-           {user?.id && <NotificationBell userId={user.id} />}
-           <button 
-             onClick={handleLogout}
-             className="w-full flex items-center gap-4 px-6 py-3 rounded-2xl hover:bg-red-500/5 text-muted-foreground hover:text-red-600 transition-all group"
-           >
-              <LogOut className="h-5 w-5" />
-              <span className="text-[11px] font-bold uppercase tracking-widest">Terminate</span>
-           </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative z-10 p-12 lg:p-20">
         {loading ? (
           <div className="max-w-4xl mx-auto space-y-16 animate-pulse text-center py-20">
              <Users className="h-16 w-16 text-black/5 mx-auto mb-6" />
@@ -474,7 +414,7 @@ export default function TeamPage() {
                                      >
                                        <Trash2 className="h-4 w-4" />
                                      </button>
-                                   </>
+                                    </>
                                  ) : (
                                    <Shield className="h-4 w-4 text-black/20" />
                                  )}
@@ -495,16 +435,12 @@ export default function TeamPage() {
                     <h3 className="text-2xl font-bold tracking-tight">No Organization Selected</h3>
                     <p className="text-muted-foreground mt-2 max-w-xs mx-auto">Select an organization from the left or create a new one to start collaborating.</p>
                   </div>
-                </div>
-              )}
-            </div>
-
-          </div>
-
-        </div>
-        )}
-      </main>
-
-    </div>
+                 </div>
+               )}
+             </div>
+           </div>
+         </div>
+       )}
+    </>
   );
 }
