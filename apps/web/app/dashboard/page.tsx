@@ -30,6 +30,8 @@ import TrendChart from "../../components/TrendChart";
 import dynamic from "next/dynamic";
 import UsageIndicator from "../../components/UsageIndicator";
 import NotificationBell from "../../components/NotificationBell";
+import Sparkline from "../../components/Sparkline";
+import GuardianReportModal from "../../components/GuardianReportModal";
 
 const ExportPDF = dynamic(() => import("../../components/ExportPDF"), { 
   ssr: false,
@@ -52,6 +54,7 @@ export default function DashboardPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'site' | 'scan', id: string, url?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [selectedSite, setSelectedSite] = useState<{ id: string, url: string, score: number } | null>(null);
   const router = useRouter();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -171,6 +174,35 @@ export default function DashboardPage() {
       }
     }
     setConfirmDelete(null);
+  };
+
+  const handleToggleMonitoring = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !currentStatus })
+      });
+      if (res.ok) {
+        setMonitoredSites(monitoredSites.map(s => s.id === id ? { ...s, active: !currentStatus } : s));
+        showToast(`Monitoring ${!currentStatus ? 'resumed' : 'paused'}`);
+      }
+    } catch (error) {
+      console.error("Failed to toggle monitoring:", error);
+    }
+  };
+
+  const handleTriggerScan = async (id: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/${id}/trigger`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        showToast("Scan triggered successfully");
+      }
+    } catch (error) {
+      console.error("Failed to trigger scan:", error);
+    }
   };
 
   const handleDeleteMonitoredSite = (id: string) => {
@@ -351,7 +383,8 @@ export default function DashboardPage() {
                  {monitoredSites.map((site) => (
                     <motion.div 
                       key={site.id}
-                      className="glass-3d-panel p-8 space-y-6 group hover:translate-y-[-5px] transition-all duration-700"
+                      onClick={() => setSelectedSite({ id: site.id, url: site.url, score: site.last_score || 0 })}
+                      className="glass-3d-panel p-8 space-y-6 group hover:translate-y-[-5px] transition-all duration-700 cursor-pointer"
                     >
                        <div className="flex justify-between items-start">
                           <div className="space-y-1">
@@ -362,12 +395,32 @@ export default function DashboardPage() {
                              {site.active ? 'Live' : 'Paused'}
                           </div>
                        </div>
+                       
+                       {/* Sparkline Visualization */}
+                       <div className="h-10 w-full bg-black/[0.02] rounded-xl px-2 py-1">
+                          <Sparkline data={scans.filter(s => s.url === site.url).slice(0, 10).reverse().map(s => ({ score: s.score }))} />
+                       </div>
+
                        <div className="flex items-end justify-between">
                           <div>
                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mb-1">Last Score</p>
                              <p className="text-3xl font-bold">{site.last_score || 'N/A'}%</p>
                           </div>
                           <div className="flex gap-2">
+                             <button 
+                               onClick={() => handleTriggerScan(site.id)}
+                               className="h-12 w-12 rounded-full bg-black/5 flex items-center justify-center hover:bg-black hover:text-white transition-all"
+                               title="Trigger Scan Now"
+                             >
+                                <Activity className="h-5 w-5" />
+                             </button>
+                             <button 
+                               onClick={() => handleToggleMonitoring(site.id, site.active)}
+                               className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${site.active ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-600 hover:text-white' : 'bg-green-500/10 text-green-600 hover:bg-green-600 hover:text-white'}`}
+                               title={site.active ? 'Pause Monitoring' : 'Resume Monitoring'}
+                             >
+                                < ShieldCheck className="h-5 w-5" />
+                             </button>
                              <Link href={`/scan?url=${encodeURIComponent(site.url)}`} className="h-12 w-12 rounded-full bg-black/5 flex items-center justify-center hover:bg-black hover:text-white transition-all">
                                 <ExternalLink className="h-5 w-5" />
                              </Link>
@@ -508,6 +561,14 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GuardianReportModal 
+        isOpen={!!selectedSite}
+        onClose={() => setSelectedSite(null)}
+        siteId={selectedSite?.id || ""}
+        url={selectedSite?.url || ""}
+        currentScore={selectedSite?.score || 0}
+      />
     </div>
   );
 }

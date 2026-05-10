@@ -16,6 +16,7 @@ import orgsRouter from './routes/orgs';
 import webhooksRouter from './routes/webhooks';
 import remediationRouter from './routes/remediation';
 import notificationsRouter from './routes/notifications';
+import historyRouter from './routes/history';
 import './queues/scanQueue'; // This starts the worker
 
 export const supabase = createClient(
@@ -47,6 +48,7 @@ app.use('/api/orgs', orgsRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/remediation', remediationRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/history', historyRouter);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {

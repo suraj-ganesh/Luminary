@@ -84,26 +84,60 @@ export const scanWorker = new Worker(
 
       // 6. Update monitored_site if applicable
       if (monitoredSiteId) {
-        // Fetch previous score and user email
+        // Fetch previous score and site details
         const { data: siteData } = await supabase
           .from('monitored_sites')
-          .select('last_score')
+          .select('last_score, url')
           .eq('id', monitoredSiteId)
           .single();
 
         const { data: userData } = await supabase.auth.admin.getUserById(userId);
         const email = userData.user?.email;
 
-        await supabase
+        // Check for significant score drop
+        const previousScore = siteData?.last_score;
+        console.log(`[Worker] Comparing scores for ${url}: Prev: ${previousScore}, New: ${score}`);
+
+        if (previousScore !== null && previousScore !== undefined && score < previousScore) {
+          const dropAmount = (previousScore - score).toFixed(1);
+          console.log(`[Worker] Score drop detected: ↓${dropAmount}%`);
+          
+          const { error: notifError } = await supabase.from('notifications').insert([
+            {
+              user_id: userId,
+              title: `Score Drop Detected: ${url}`,
+              body: `Accessibility score dropped from ${previousScore}% to ${score}% (↓${dropAmount}%).`,
+              type: 'warning',
+              read: false
+            }
+          ]);
+          if (notifError) console.error('[Worker] Failed to create drop notification:', notifError);
+        } else {
+          console.log(`[Worker] Regular completion for ${url}`);
+          const { error: notifError } = await supabase.from('notifications').insert([
+            {
+              user_id: userId,
+              title: `Audit Complete: ${url}`,
+              body: `The scheduled scan for ${url} finished with a score of ${score}%.`,
+              type: 'success',
+              read: false
+            }
+          ]);
+          if (notifError) console.error('[Worker] Failed to create completion notification:', notifError);
+        }
+
+        const { error: updateError } = await supabase
           .from('monitored_sites')
           .update({ 
             last_scan_at: new Date().toISOString(),
             last_score: score 
           })
           .eq('id', monitoredSiteId);
+        
+        if (updateError) console.error('[Worker] Failed to update monitored site:', updateError);
 
         if (email) {
-          await sendScanAlert(email, url, score, siteData?.last_score);
+          await sendScanAlert(email, url, score, previousScore);
         }
       }
 

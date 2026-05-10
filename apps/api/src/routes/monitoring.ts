@@ -17,6 +17,18 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'URL and UserID are required' });
     }
 
+    // Deduplication check
+    const { data: existing } = await supabase
+      .from('monitored_sites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('url', url)
+      .maybeSingle();
+
+    if (existing) {
+      return res.status(400).json({ error: 'This site is already being monitored.' });
+    }
+
     const { data, error } = await supabase
       .from('monitored_sites')
       .insert([
@@ -100,6 +112,51 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     if (error) throw error;
     return res.status(200).json({ message: 'Monitoring stopped' });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Toggle monitoring (Pause/Resume)
+router.patch('/:id/toggle', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { active } = req.body;
+
+    const { error } = await supabase
+      .from('monitored_sites')
+      .update({ active })
+      .eq('id', id);
+
+    if (error) throw error;
+    return res.status(200).json({ 
+      message: `Monitoring ${active ? 'resumed' : 'paused'}`,
+      active 
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Force manual scan for monitored site
+router.post('/:id/trigger', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data: site, error: fetchError } = await supabase
+      .from('monitored_sites')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !site) throw new Error('Site not found');
+
+    await scanQueue.add(`manual-trigger-${site.id}-${Date.now()}`, {
+      url: site.url,
+      userId: site.user_id,
+      monitoredSiteId: site.id
+    });
+
+    return res.status(200).json({ message: 'Scan triggered successfully' });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

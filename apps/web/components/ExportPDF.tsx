@@ -8,12 +8,14 @@ interface ExportPDFProps {
     score: number;
     violations: any[];
   };
+  history?: { date: string; score: number }[];
   iconOnly?: boolean;
 }
 
 export default function ExportPDF({
   url,
   results,
+  history = [],
   iconOnly = false,
 }: ExportPDFProps) {
   const handleExport = async () => {
@@ -120,10 +122,53 @@ export default function ExportPDF({
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text("Neural Diagnostic Log", 20, 135);
+      
+      // Trend Section
+      if (history && history.length > 0) {
+        doc.text("Trend Analysis", 20, 130);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Tracking ${history.length} historical audit points for this target.`, 20, 137);
+        
+        let xPos = 20;
+        const chartWidth = 170;
+        const chartHeight = 30;
+        const startY = 145;
+        
+        // Simple visual timeline representation
+        doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.setLineWidth(0.1);
+        doc.line(xPos, startY + chartHeight, xPos + chartWidth, startY + chartHeight);
+        
+        const step = chartWidth / (history.length - 1 || 1);
+        doc.setDrawColor(brandColor[0], brandColor[1], brandColor[2]);
+        doc.setLineWidth(0.8);
+        
+        history.forEach((h, i) => {
+          const x = xPos + (i * step);
+          const y = (startY + chartHeight) - (h.score / 100 * chartHeight);
+          
+          if (i > 0) {
+            const prevX = xPos + ((i - 1) * step);
+            const prevY = (startY + chartHeight) - (history[i-1].score / 100 * chartHeight);
+            doc.line(prevX, prevY, x, y);
+          }
+          
+          doc.setFillColor(brandColor[0], brandColor[1], brandColor[2]);
+          doc.circle(x, y, 0.5, "F");
+        });
+
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        doc.text("Neural Diagnostic Log", 20, 190);
+      } else {
+        doc.text("Neural Diagnostic Log", 20, 135);
+      }
 
       if (results?.violations && results.violations.length > 0) {
-        let yPos = 150;
+        let yPos = (history && history.length > 0) ? 200 : 150;
 
         results.violations.forEach((v: any, i: number) => {
           // Add new page if getting close to bottom
