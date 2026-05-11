@@ -11,19 +11,37 @@ import {
   Globe,
   User as UserIcon,
   LogOut,
-  X
+  X,
+  Trash2,
+  ExternalLink,
+  Activity
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
 
+const ExportPDF = dynamic(() => import("../components/ExportPDF"), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-14 w-14 rounded-full bg-black/5 flex items-center justify-center animate-pulse">
+      <Activity className="h-5 w-5 text-black/10" />
+    </div>
+  )
+});
+
 export default function Home() {
+
   const [url, setUrl] = useState("");
   const [user, setUser] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string, url: string } | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const router = useRouter();
+
 
   useEffect(() => {
     const checkUser = async () => {
@@ -59,6 +77,39 @@ export default function Home() {
       router.push(`/scan?url=${encodeURIComponent(url)}`);
     }
   };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleDeleteScan = (id: string, url: string) => {
+    setConfirmDelete({ id, url });
+  };
+
+  const executeDelete = async () => {
+    if (!confirmDelete || !user) return;
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/scan/bulk/site`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: confirmDelete.url, userId: user.id })
+      });
+
+      if (response.ok) {
+        setRecentScans(recentScans.filter(s => s.url !== confirmDelete.url));
+        showToast("Audit log cleared for this site");
+      } else {
+        showToast("Failed to clear audit log", "error");
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+      showToast("Error connecting to server", "error");
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
 
   const features = [
     {
@@ -207,24 +258,62 @@ export default function Home() {
 
               <div className="grid gap-4">
                 {recentScans.map((scan, i) => (
-                  <motion.div key={scan.id} {...fadeInUp} transition={{ delay: i * 0.1 }} className="glass-3d-panel !p-6 md:!p-8 flex flex-col md:flex-row items-center justify-between hover:bg-white transition-all shadow-sm">
+                  <motion.div 
+                    key={scan.id} 
+                    {...fadeInUp} 
+                    transition={{ delay: i * 0.1 }} 
+                    className="glass-3d-panel !p-6 md:!p-8 flex flex-col md:flex-row items-center justify-between hover:bg-white transition-all shadow-sm group"
+                  >
                     <div className="flex items-center gap-6 md:gap-8">
-                      <div className="h-14 w-20 bg-black/5 rounded-2xl flex items-center justify-center font-bold text-[10px] text-black/20 uppercase shrink-0">{scan.url.replace('https://', '').split(".")[0]}</div>
+                      <div className="h-14 w-20 bg-black/5 rounded-2xl flex items-center justify-center font-bold text-[10px] text-black/20 uppercase shrink-0">
+                        {scan.url.replace('https://', '').split(".")[0]}
+                      </div>
                       <div className="overflow-hidden">
-                        <h4 className="text-lg md:text-xl font-bold tracking-tight truncate">{scan.url}</h4>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mt-1">{new Date(scan.created_at).toLocaleDateString()}</p>
+                        <Link href={`/report/${scan.id}`} className="text-lg md:text-xl font-bold tracking-tight truncate hover:text-primary transition-colors flex items-center gap-2">
+                          {scan.url}
+                          <ExternalLink className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mt-1">
+                          {new Date(scan.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-8 md:gap-12 mt-4 md:mt-0">
                       <div className="text-right shrink-0">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30 mb-1">SCORE</p>
-                        <p className={`text-xl md:text-2xl font-bold ${scan.score >= 90 ? "text-green-600" : "text-primary"}`}>{scan.score}%</p>
+                        <p className={`text-xl md:text-2xl font-bold ${scan.score >= 90 ? "text-green-600" : "text-primary"}`}>
+                          {scan.score}%
+                        </p>
                       </div>
-                      <ChevronRight className="h-6 w-6 text-black/10 shrink-0" />
+                      <div className="flex items-center gap-4">
+                        <ExportPDF 
+                          url={scan.url} 
+                          results={{ score: scan.score, violations: scan.results ? JSON.parse(scan.results) : [] }} 
+                          iconOnly 
+                        />
+                        <Link 
+                          href={`/report/${scan.id}`} 
+                          className="h-14 w-14 rounded-full bg-black/5 flex items-center justify-center hover:bg-black hover:text-white transition-all duration-500 shadow-sm"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </Link>
+                        <button 
+                          onClick={() => handleDeleteScan(scan.id, scan.url)}
+                          className="h-14 w-14 rounded-full bg-red-500/10 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all duration-500 shadow-sm"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
+                {recentScans.length === 0 && (
+                  <div className="py-16 text-center border-2 border-dashed border-black/5 rounded-[2.5rem]">
+                    <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">No recent scans found.</p>
+                  </div>
+                )}
               </div>
+
             </div>
           </section>
         )}
@@ -305,6 +394,60 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
+      {/* Confirmation & Toast Modals */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border border-white/50 max-w-sm w-full mx-4"
+            >
+              <h3 className="text-xl font-bold mb-2">Are you sure?</h3>
+              <p className="text-muted-foreground text-sm mb-8 font-light">
+                This will permanently remove all scan history for this site from your audit log.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 py-3 rounded-full bg-black/5 hover:bg-black/10 font-bold text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={executeDelete}
+                  className="flex-1 py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-red-500/30"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-full flex items-center gap-3 shadow-2xl z-[200] backdrop-blur-xl border border-white/20 text-[10px] font-bold tracking-widest uppercase ${
+              toast.type === 'error' ? 'bg-red-500/90 text-white' : 'bg-black/90 text-white'
+            }`}
+          >
+            {toast.type === 'success' ? <ShieldCheck className="h-4 w-4 text-green-400" /> : <Activity className="h-4 w-4" />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+
   );
 }
