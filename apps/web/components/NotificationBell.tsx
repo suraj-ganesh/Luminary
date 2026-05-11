@@ -130,7 +130,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               )}
             </div>
             
-            <div className="overflow-y-auto flex-1 p-6 scrollbar-hide custom-scrollbar">
+            <div className="overflow-y-auto flex-1 p-6 custom-scrollbar">
               {notifications.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
                   <Bell className="h-12 w-12" />
