@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createFixPR } from '../services/github';
 
 const router = Router();
 
@@ -155,6 +156,30 @@ router.post('/generate', async (req, res) => {
       message: errorDetails.message,
       details: errorDetails
     });
+  }
+});
+
+/**
+ * @route POST /api/remediation/github/fix
+ * @desc Create a GitHub PR for a specific violation
+ */
+router.post('/github/fix', async (req, res) => {
+  try {
+    const { userId, repoFullName, violation } = req.body;
+
+    if (!userId || !repoFullName || !violation) {
+      return res.status(400).json({ error: 'Missing required fields: userId, repoFullName, and violation are required.' });
+    }
+
+    const result = await createFixPR(userId, repoFullName, violation);
+
+    if (result.success) {
+      return res.status(200).json(result);
+    } else {
+      return res.status(500).json({ error: result.error });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
   }
 });
 

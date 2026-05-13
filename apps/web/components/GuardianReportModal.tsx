@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, TrendingUp, TrendingDown, Calendar, ShieldCheck, Activity, Award, Info } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Calendar, ShieldCheck, Activity, Award, Info, ExternalLink, Loader2 } from "lucide-react";
+import { FaGithub } from "react-icons/fa";
+import { supabase } from "../lib/supabase";
 import TrendChart from "./TrendChart";
 import dynamic from "next/dynamic";
 const ExportPDF = dynamic(() => import("./ExportPDF"), { ssr: false });
@@ -19,6 +21,9 @@ interface GuardianReportModalProps {
 export default function GuardianReportModal({ isOpen, onClose, siteId, url, currentScore, scans = [] }: GuardianReportModalProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [repoFullName, setRepoFullName] = useState("");
+  const [isFixing, setIsFixing] = useState(false);
+  const [prUrl, setPrUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && siteId) {
@@ -48,6 +53,32 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
   const previousScore = history.length > 1 ? history[history.length - 2].score : null;
   const isImproving = previousScore !== null && currentScore > previousScore;
   const isDeclining = previousScore !== null && currentScore < previousScore;
+
+  const handleFixInWorkspace = async () => {
+    if (!repoFullName) return;
+    setIsFixing(true);
+    setPrUrl(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const res = await fetch('http://localhost:8080/api/remediation/github/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          repoFullName,
+          violation: scans[0]?.results ? JSON.parse(scans[0].results)[0] : {}
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPrUrl(data.url);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFixing(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -108,7 +139,6 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
                   </p>
                 </div>
               </div>
-
               {/* Intelligence Insight */}
               <div className="glass-3d-panel p-8 relative overflow-hidden bg-black text-white border-none">
                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -121,6 +151,61 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
                     particularly in <span className="text-blue-400">ARIA semantics</span>. We recommend focusing on 
                     <span className="text-blue-400"> keyboard navigation</span> next to reach the 98th percentile.
                  </p>
+              </div>
+
+              {/* Fix in Workspace Section */}
+              <div className="glass-3d-panel p-8 space-y-6 border-blue-500/20 bg-blue-500/[0.02]">
+                 <div className="flex items-center justify-between">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-600 flex items-center gap-2">
+                       <FaGithub className="h-4 w-4" /> Fix in Workspace
+                    </h3>
+                    <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-[9px] font-bold uppercase tracking-widest">
+                       Phase 12 Beta
+                    </div>
+                 </div>
+
+                 <div className="flex gap-4">
+                    <div className="flex-1 space-y-2">
+                       <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 ml-2">GitHub Repository</label>
+                       <input 
+                         value={repoFullName}
+                         onChange={(e) => setRepoFullName(e.target.value)}
+                         placeholder="username/repository"
+                         className="w-full h-14 px-6 bg-white border border-black/5 rounded-2xl text-xs font-bold outline-none focus:border-blue-500/30 transition-all shadow-sm"
+                       />
+                    </div>
+                    <button 
+                      onClick={handleFixInWorkspace}
+                      disabled={isFixing || !repoFullName}
+                      className="h-14 px-10 bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black/80 transition-all disabled:opacity-50 flex items-center gap-3 mt-auto"
+                    >
+                       {isFixing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FaGithub className="h-4 w-4" />}
+                       {isFixing ? "Generating PR..." : "Create Remediation PR"}
+                    </button>
+                 </div>
+
+                 {prUrl && (
+                   <motion.div 
+                     initial={{ opacity: 0, y: 10 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center justify-between"
+                   >
+                      <div className="flex items-center gap-3">
+                         <div className="h-8 w-8 rounded-lg bg-green-500 text-white flex items-center justify-center">
+                            <ShieldCheck className="h-4 w-4" />
+                         </div>
+                         <p className="text-xs font-bold text-green-700 uppercase tracking-widest">Pull Request Created Successfully!</p>
+                      </div>
+                      <a 
+                        href={prUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-white border border-green-200 rounded-xl text-[9px] font-bold uppercase tracking-widest text-green-600 hover:bg-green-100 transition-all flex items-center gap-2"
+                      >
+                         View on GitHub <ExternalLink className="h-3 w-3" />
+                      </a>
+                   </motion.div>
+                 )}
               </div>
 
               {/* Chart */}

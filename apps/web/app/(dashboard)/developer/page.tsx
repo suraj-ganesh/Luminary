@@ -133,6 +133,7 @@ export default function DeveloperPage() {
         const { url } = await authRes.json();
         localStorage.setItem('luminary_integration_user', user.id);
         window.location.href = url;
+        
         return;
       }
 
