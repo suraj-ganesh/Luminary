@@ -162,4 +162,71 @@ router.post('/:id/trigger', async (req: Request, res: Response) => {
   }
 });
 
+// Get portfolio benchmarks and neural insights for a site
+router.get('/:id/benchmarks', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: site } = await supabase
+      .from('monitored_sites')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!site) throw new Error('Site not found');
+
+    const { data: latestScan } = await supabase
+      .from('scans')
+      .select('*')
+      .eq('url', site.url)
+      .eq('user_id', site.user_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!latestScan) {
+      return res.status(200).json({ 
+        percentile: 0,
+        neuralInsights: ["Initial scan pending. Benchmarks will be available shortly."]
+      });
+    }
+
+    const { data: allScans } = await supabase
+      .from('scans')
+      .select('score')
+      .eq('user_id', site.user_id);
+
+    const scores = allScans?.map(s => s.score) || [];
+    const currentScore = latestScan.score;
+    
+    const betterThan = scores.filter(s => currentScore > s).length;
+    const percentileRaw = scores.length > 0 ? (betterThan / scores.length) : 0;
+    const percentile = Math.round(percentileRaw * 100);
+
+    const insights = [];
+    if (percentile > 80) {
+      insights.push(`Your site is performing in the Top ${Math.max(1, 100 - percentile)}% of your portfolio.`);
+    } else {
+      insights.push(`This site is currently ranked at the ${percentile}th percentile in your organization.`);
+    }
+
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    if (currentScore > avgScore) {
+      insights.push(`Performing ${Math.round(currentScore - avgScore)}% above your average baseline.`);
+    } else if (currentScore < avgScore) {
+      insights.push(`Currently ${Math.round(avgScore - currentScore)}% below your organization's average.`);
+    }
+
+    return res.status(200).json({
+      percentile: 100 - percentile,
+      neuralInsights: insights,
+      portfolioAvg: Math.round(avgScore)
+    });
+
+  } catch (error: any) {
+    console.error('Benchmark error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

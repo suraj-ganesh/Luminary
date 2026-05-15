@@ -24,6 +24,7 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
   const [repoFullName, setRepoFullName] = useState("");
   const [isFixing, setIsFixing] = useState(false);
   const [prUrl, setPrUrl] = useState<string | null>(null);
+  const [benchmarks, setBenchmarks] = useState<{ percentile: number, neuralInsights: string[], portfolioAvg: number } | null>(null);
 
   useEffect(() => {
     if (isOpen && siteId) {
@@ -46,7 +47,19 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
           setLoading(false);
         }
       };
+      const fetchBenchmarks = async () => {
+        try {
+          const res = await fetch(`http://localhost:8080/api/monitoring/${siteId}/benchmarks`);
+          if (res.ok) {
+            const data = await res.json();
+            setBenchmarks(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch benchmarks:", error);
+        }
+      };
       fetchHistory();
+      fetchBenchmarks();
     }
   }, [isOpen, siteId]);
 
@@ -133,9 +146,9 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
                 </div>
                 <div className="glass-3d-panel p-6 bg-gradient-to-br from-[#3b83f5]/5 to-[#2ecac5]/5 border-blue-500/10">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-blue-600/60 mb-2">Portfolio Ranking</p>
-                  <p className="text-4xl font-bold">Top 15%</p>
+                  <p className="text-4xl font-bold">Top {benchmarks?.percentile || 15}%</p>
                   <p className="mt-2 text-[10px] font-bold text-blue-600/40 uppercase tracking-widest flex items-center gap-2">
-                    <Award className="h-3 w-3" /> Outperforming estate avg
+                    <Award className="h-3 w-3" /> {benchmarks ? 'Outperforming portfolio' : 'Estate benchmark'}
                   </p>
                 </div>
               </div>
@@ -145,11 +158,11 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
                  <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/40 mb-6 flex items-center gap-3">
                     <Info className="h-4 w-4" /> Guardian Intelligence Insight
                  </h3>
-                 <p className="text-xl font-light leading-relaxed tracking-tight">
-                    This domain is currently <span className="text-blue-400 font-bold">outperforming 85%</span> of your managed portfolio. 
-                    The recent {isImproving ? 'improvement' : 'audit'} suggests that your remediation efforts are taking effect, 
-                    particularly in <span className="text-blue-400">ARIA semantics</span>. We recommend focusing on 
-                    <span className="text-blue-400"> keyboard navigation</span> next to reach the 98th percentile.
+                 <p className="text-xl font-light leading-relaxed tracking-tight relative z-10">
+                    {benchmarks?.neuralInsights.map((insight, idx) => (
+                       <span key={idx} className={idx === 0 ? "text-blue-400 font-bold" : ""}>{insight} </span>
+                    )) || "Analyzing portfolio data to generate neural compliance insights..."}
+                    The recent {isImproving ? 'improvement' : 'audit'} suggests that your remediation efforts are taking effect.
                  </p>
               </div>
 
