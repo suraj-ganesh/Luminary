@@ -42,7 +42,12 @@ export default function LoginPage() {
       if (loginError) {
         setError(loginError.message);
       } else {
-        router.push("/dashboard");
+        const pendingToken = sessionStorage.getItem('pending_invite_token');
+        if (pendingToken) {
+          router.push(`/invite/${pendingToken}`);
+        } else {
+          router.push("/dashboard");
+        }
         router.refresh();
       }
     } catch (err: any) {

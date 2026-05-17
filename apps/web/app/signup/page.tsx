@@ -53,9 +53,14 @@ export default function SignupPage() {
       } else if (data.user && data.user.identities?.length === 0) {
         setError("This account already exists. Please log in.");
       } else {
-        setSuccess("Account created! Redirecting to login...");
+        const pendingToken = sessionStorage.getItem('pending_invite_token');
+        setSuccess("Account created! Redirecting...");
         setTimeout(() => {
-          router.push("/login");
+          if (pendingToken) {
+            router.push(`/invite/${pendingToken}`);
+          } else {
+            router.push("/login");
+          }
         }, 2000);
       }
     } catch (err: any) {

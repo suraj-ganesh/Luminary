@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { 
   LayoutDashboard, 
   Code,
@@ -18,7 +17,10 @@ import {
   Trash2,
   CheckCircle2,
   UserPlus,
-  Settings
+  Settings,
+  Edit2,
+  LogOut as LeaveIcon,
+  Copy
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import NotificationBell from "../../../components/NotificationBell";
@@ -54,13 +56,18 @@ export default function TeamPage() {
   const [isInviting, setIsInviting] = useState(false);
   const [activeOrg, setActiveOrg] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   
+  // Org Settings State
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [editOrgName, setEditOrgName] = useState("");
+
   // Toast State
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
   // Confirm Modal State
-  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, userId: string}>({ isOpen: false, userId: '' });
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: 'remove_member' | 'delete_org' | 'leave_org', targetId?: string}>({ isOpen: false, action: 'remove_member' });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
@@ -85,6 +92,8 @@ export default function TeamPage() {
   useEffect(() => {
     if (activeOrg) {
       fetchMembers(activeOrg.id);
+      fetchPendingInvites(activeOrg.id);
+      setEditOrgName(activeOrg.name);
     }
   }, [activeOrg]);
 
@@ -103,6 +112,18 @@ export default function TeamPage() {
     }
   };
 
+  const fetchPendingInvites = async (orgId: string) => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/orgs/${orgId}/invites`);
+      if (res.ok) {
+        const data = await res.json();
+        setPendingInvites(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch invites:", error);
+    }
+  };
+
   const fetchOrganizations = async (userId: string) => {
     try {
       const res = await fetch(`http://localhost:8080/api/orgs/list/${userId}`);
@@ -111,6 +132,8 @@ export default function TeamPage() {
         setOrganizations(data);
         if (data.length > 0 && !activeOrg) {
           setActiveOrg(data[0]);
+        } else if (data.length === 0) {
+          setActiveOrg(null);
         }
       }
     } catch (error) {
@@ -133,7 +156,7 @@ export default function TeamPage() {
         const data = await res.json();
         setOrganizations([...organizations, { ...data.organization, userRole: 'admin' }]);
         setNewOrgName("");
-        if (!activeOrg) setActiveOrg(data.organization);
+        setActiveOrg({ ...data.organization, userRole: 'admin' });
         showToast("Organization created successfully", 'success');
       }
     } catch (error) {
@@ -144,19 +167,52 @@ export default function TeamPage() {
     }
   };
 
+  const handleRenameOrg = async () => {
+    if (!activeOrg || !editOrgName || !user) return;
+    setIsRenaming(true);
+    try {
+      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId: user.id, name: editOrgName })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrganizations(organizations.map(o => o.id === activeOrg.id ? { ...o, name: editOrgName } : o));
+        setActiveOrg({ ...activeOrg, name: editOrgName });
+        showToast("Organization renamed", 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to rename organization", 'error');
+      }
+    } catch (error) {
+      console.error("Rename error:", error);
+      showToast("Error renaming organization", 'error');
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
   const handleInvite = async () => {
-    if (!inviteEmail || !activeOrg) return;
+    if (!inviteEmail || !activeOrg || !user) return;
     setIsInviting(true);
     try {
       const res = await fetch('http://localhost:8080/api/orgs/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId: activeOrg.id, email: inviteEmail, role: 'viewer' })
+        body: JSON.stringify({ orgId: activeOrg.id, email: inviteEmail, role: 'viewer', requesterId: user.id })
       });
       if (res.ok) {
-        showToast("Member invited successfully!", 'success');
+        const data = await res.json();
+        if (data.type === 'invite') {
+           showToast("Invitation created! Link generated.", 'success');
+           // In real app, we email the link. For demo, just refresh invites list.
+           fetchPendingInvites(activeOrg.id);
+        } else {
+           showToast("Member added directly!", 'success');
+           fetchMembers(activeOrg.id);
+        }
         setInviteEmail("");
-        fetchMembers(activeOrg.id); // Refresh members
       } else {
         const data = await res.json();
         showToast(data.error || "Failed to invite member", 'error');
@@ -169,27 +225,87 @@ export default function TeamPage() {
     }
   };
 
-  const executeRemoveMember = async () => {
-    const userId = confirmDelete.userId;
-    setConfirmDelete({ isOpen: false, userId: '' });
-    if (!activeOrg || !user || !userId) return;
-
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!activeOrg || !user) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${userId}`, {
+      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/invites/${inviteId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requesterId: user.id })
       });
       if (res.ok) {
-        setMembers(members.filter(m => m.user_id !== userId));
-        showToast("Member removed", 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.error || "Failed to remove member", 'error');
+        setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
+        showToast("Invite revoked", 'success');
       }
     } catch (error) {
-      console.error("Failed to remove member:", error);
-      showToast("Failed to remove member", 'error');
+      console.error("Failed to revoke invite", error);
+      showToast("Failed to revoke invite", 'error');
+    }
+  };
+
+  const executeModalAction = async () => {
+    const action = confirmModal.action;
+    const targetId = confirmModal.targetId;
+    setConfirmModal({ isOpen: false, action: 'remove_member' });
+    if (!activeOrg || !user) return;
+
+    if (action === 'remove_member' && targetId) {
+      try {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${targetId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requesterId: user.id })
+        });
+        if (res.ok) {
+          setMembers(members.filter(m => m.user_id !== targetId));
+          showToast("Member removed", 'success');
+        } else {
+          const data = await res.json();
+          showToast(data.error || "Failed to remove member", 'error');
+        }
+      } catch (error) {
+        showToast("Failed to remove member", 'error');
+      }
+    } 
+    else if (action === 'delete_org') {
+      try {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requesterId: user.id })
+        });
+        if (res.ok) {
+          const updatedOrgs = organizations.filter(o => o.id !== activeOrg.id);
+          setOrganizations(updatedOrgs);
+          setActiveOrg(updatedOrgs.length > 0 ? updatedOrgs[0] : null);
+          showToast("Organization deleted", 'success');
+        } else {
+          const data = await res.json();
+          showToast(data.error || "Failed to delete organization", 'error');
+        }
+      } catch (error) {
+        showToast("Failed to delete organization", 'error');
+      }
+    }
+    else if (action === 'leave_org') {
+      try {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/leave`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id })
+        });
+        if (res.ok) {
+          const updatedOrgs = organizations.filter(o => o.id !== activeOrg.id);
+          setOrganizations(updatedOrgs);
+          setActiveOrg(updatedOrgs.length > 0 ? updatedOrgs[0] : null);
+          showToast("Left organization successfully", 'success');
+        } else {
+          const data = await res.json();
+          showToast(data.error || "Failed to leave organization", 'error');
+        }
+      } catch (error) {
+        showToast("Failed to leave organization", 'error');
+      }
     }
   };
 
@@ -214,11 +330,6 @@ export default function TeamPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-  };
-
   return (
     <>
       {/* Toast Notification */}
@@ -228,7 +339,7 @@ export default function TeamPage() {
 
       {/* Confirm Modal */}
       <AnimatePresence>
-        {confirmDelete.isOpen && (
+        {confirmModal.isOpen && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -236,29 +347,36 @@ export default function TeamPage() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl"
             >
-              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mb-6">
-                <Trash2 className="h-6 w-6 text-red-600" />
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center mb-6 ${confirmModal.action === 'remove_member' ? 'bg-red-100' : 'bg-orange-100'}`}>
+                {confirmModal.action === 'remove_member' ? <Trash2 className="h-6 w-6 text-red-600" /> : <LeaveIcon className="h-6 w-6 text-orange-600" />}
               </div>
-              <h3 className="text-2xl font-bold tracking-tight mb-2">Remove Member?</h3>
-              <p className="text-muted-foreground text-sm mb-8">Are you sure you want to remove this member from the organization? They will lose all access to team scans.</p>
+              <h3 className="text-2xl font-bold tracking-tight mb-2">
+                {confirmModal.action === 'remove_member' ? 'Remove Member?' : confirmModal.action === 'delete_org' ? 'Delete Organization?' : 'Leave Organization?'}
+              </h3>
+              <p className="text-muted-foreground text-sm mb-8">
+                {confirmModal.action === 'remove_member' ? 'Are you sure you want to remove this member? They will lose all access.' : 
+                 confirmModal.action === 'delete_org' ? 'Are you absolutely sure you want to delete this entire organization? This action cannot be undone and deletes all shared data.' : 
+                 'Are you sure you want to leave? You will lose access to all shared scans.'}
+              </p>
               <div className="flex gap-4">
                 <button 
-                  onClick={() => setConfirmDelete({ isOpen: false, userId: '' })}
+                  onClick={() => setConfirmModal({ isOpen: false, action: 'remove_member' })}
                   className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={executeRemoveMember}
-                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg shadow-red-500/20"
+                  onClick={executeModalAction}
+                  className={`flex-1 py-3 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg ${confirmModal.action === 'remove_member' || confirmModal.action === 'delete_org' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'}`}
                 >
-                  Remove
+                  {confirmModal.action === 'remove_member' ? 'Remove' : confirmModal.action === 'delete_org' ? 'Delete Org' : 'Leave Org'}
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+        
         {loading ? (
           <div className="max-w-4xl mx-auto space-y-16 animate-pulse text-center py-20">
              <Users className="h-16 w-16 text-black/5 mx-auto mb-6" />
@@ -290,10 +408,10 @@ export default function TeamPage() {
                       className={`w-full p-4 rounded-2xl text-left transition-all flex items-center justify-between group ${activeOrg?.id === org.id ? 'bg-black text-white shadow-xl' : 'bg-white/40 border border-black/5 hover:bg-white'}`}
                     >
                       <div>
-                        <p className="font-bold text-sm">{org.name}</p>
+                        <p className="font-bold text-sm truncate w-32">{org.name}</p>
                         <p className={`text-[9px] uppercase tracking-widest ${activeOrg?.id === org.id ? 'text-white/40' : 'text-muted-foreground/40'}`}>{org.userRole}</p>
                       </div>
-                      <Shield className={`h-4 w-4 transition-transform group-hover:scale-110 ${activeOrg?.id === org.id ? 'text-white/20' : 'text-black/5'}`} />
+                      <Shield className={`h-4 w-4 transition-transform group-hover:scale-110 flex-shrink-0 ${activeOrg?.id === org.id ? 'text-white/20' : 'text-black/5'}`} />
                     </button>
                   ))}
                   
@@ -323,13 +441,49 @@ export default function TeamPage() {
                   {/* Org Header */}
                   <div className="glass-3d-panel p-10 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#3b83f5]/10 to-[#2ecac5]/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                    <div className="flex items-center justify-between mb-8">
-                       <div>
-                          <h2 className="text-3xl font-bold tracking-tight">{activeOrg.name}</h2>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">ID: {activeOrg.id}</p>
+                    
+                    <div className="flex items-start justify-between mb-8">
+                       <div className="flex-1 mr-4">
+                          {activeOrg.userRole === 'admin' ? (
+                            <div className="flex items-center gap-3 group">
+                              <input 
+                                value={editOrgName}
+                                onChange={(e) => setEditOrgName(e.target.value)}
+                                onBlur={handleRenameOrg}
+                                onKeyDown={(e) => e.key === 'Enter' && handleRenameOrg()}
+                                className="text-3xl font-bold tracking-tight bg-transparent border-b border-transparent hover:border-black/10 focus:border-black/30 outline-none w-full transition-all"
+                              />
+                              <Edit2 className="h-4 w-4 text-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          ) : (
+                            <h2 className="text-3xl font-bold tracking-tight">{activeOrg.name}</h2>
+                          )}
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-2">ID: {activeOrg.id}</p>
                        </div>
-                       <div className="h-14 w-14 rounded-2xl bg-black flex items-center justify-center text-white shadow-xl shadow-black/20">
-                          <Users className="h-6 w-6" />
+                       
+                       <div className="flex flex-col items-end gap-2">
+                         <div className="h-14 w-14 rounded-2xl bg-black flex items-center justify-center text-white shadow-xl shadow-black/20">
+                            <Users className="h-6 w-6" />
+                         </div>
+                         
+                         {/* Action Buttons */}
+                         <div className="flex items-center gap-2 mt-2">
+                           {activeOrg.userRole === 'admin' ? (
+                             <button 
+                               onClick={() => setConfirmModal({ isOpen: true, action: 'delete_org' })}
+                               className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 transition-colors"
+                             >
+                               <Trash2 className="h-3 w-3" /> Delete
+                             </button>
+                           ) : (
+                             <button 
+                               onClick={() => setConfirmModal({ isOpen: true, action: 'leave_org' })}
+                               className="px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 transition-colors"
+                             >
+                               <LeaveIcon className="h-3 w-3" /> Leave
+                             </button>
+                           )}
+                         </div>
                        </div>
                     </div>
 
@@ -366,10 +520,10 @@ export default function TeamPage() {
                           disabled={isInviting || !inviteEmail}
                           className="px-10 h-14 bg-black text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black/80 transition-all shadow-xl shadow-black/10 flex items-center gap-3"
                         >
-                          {isInviting ? 'Inviting...' : 'Send Invite'}
+                          {isInviting ? 'Sending...' : 'Send Invite'}
                         </button>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-4">New members will be added as 'Viewer' by default. You can change roles later.</p>
+                      <p className="text-[10px] text-muted-foreground mt-4">New members are added as Viewer by default. Unregistered users will receive an invite link.</p>
                     </div>
                   )}
 
@@ -409,7 +563,7 @@ export default function TeamPage() {
                                        <option value="viewer">Viewer</option>
                                      </select>
                                      <button 
-                                       onClick={() => setConfirmDelete({ isOpen: true, userId: member.user_id })}
+                                       onClick={() => setConfirmModal({ isOpen: true, action: 'remove_member', targetId: member.user_id })}
                                        className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors"
                                      >
                                        <Trash2 className="h-4 w-4" />
@@ -424,6 +578,48 @@ export default function TeamPage() {
                         )}
                      </div>
                   </div>
+
+                  {/* Pending Invites List */}
+                  {activeOrg.userRole === 'admin' && pendingInvites.length > 0 && (
+                    <div className="glass-3d-panel p-8">
+                       <h3 className="text-lg font-bold mb-6">Pending Invitations</h3>
+                       <div className="space-y-4">
+                          {pendingInvites.map(invite => (
+                            <div key={invite.id} className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-dashed border-black/20">
+                               <div className="flex items-center gap-4">
+                                  <div className="h-10 w-10 rounded-xl bg-black/5 text-black/40 flex items-center justify-center font-bold text-xs uppercase border border-black/10">
+                                     <Mail className="h-4 w-4" />
+                                  </div>
+                                  <div>
+                                     <p className="text-sm font-bold text-black/70">{invite.email}</p>
+                                     <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Invited as {invite.role}</p>
+                                  </div>
+                               </div>
+                               
+                               <div className="flex items-center gap-2">
+                                 <button 
+                                   onClick={() => {
+                                      navigator.clipboard.writeText(`http://localhost:3000/invite/${invite.token}`);
+                                      showToast("Invite link copied", "info");
+                                   }}
+                                   className="h-8 w-8 flex items-center justify-center rounded-lg bg-black/5 hover:bg-black/10 transition-colors"
+                                   title="Copy Invite Link"
+                                 >
+                                   <Copy className="h-4 w-4 text-black/60" />
+                                 </button>
+                                 <button 
+                                   onClick={() => handleRevokeInvite(invite.id)}
+                                   className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500 transition-colors"
+                                   title="Revoke Invite"
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </button>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  )}
 
                 </div>
               ) : (
