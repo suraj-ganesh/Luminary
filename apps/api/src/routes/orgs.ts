@@ -178,7 +178,7 @@ router.post('/invite', async (req: Request, res: Response) => {
 router.delete('/:orgId/members/:userId', async (req: Request, res: Response) => {
   try {
     const { orgId, userId } = req.params;
-    const { requesterId } = req.body; // In a real app, this would come from auth middleware
+    const requesterId = req.query.requesterId || req.body.requesterId; 
 
     // Basic check: Is the requester an admin?
     const { data: requester, error: reqError } = await supabase
@@ -321,7 +321,11 @@ router.patch('/:orgId', async (req: Request, res: Response) => {
 router.delete('/:orgId', async (req: Request, res: Response) => {
   try {
     const { orgId } = req.params;
-    const { requesterId } = req.body;
+    const requesterId = req.query.requesterId || req.body.requesterId;
+
+    if (!requesterId) {
+       return res.status(400).json({ error: 'Requester ID is required' });
+    }
 
     const { data: requester, error: reqError } = await supabase
       .from('organization_members')
@@ -360,7 +364,11 @@ router.delete('/:orgId', async (req: Request, res: Response) => {
 router.delete('/:orgId/leave', async (req: Request, res: Response) => {
   try {
     const { orgId } = req.params;
-    const { userId } = req.body;
+    const userId = req.query.userId || req.body.userId;
+
+    if (!userId) {
+       return res.status(400).json({ error: 'User ID is required' });
+    }
 
     // Check if user is the ONLY admin. If so, they cannot leave without transferring or deleting.
     const { data: members, error: memError } = await supabase
@@ -418,7 +426,11 @@ router.get('/:orgId/invites', async (req: Request, res: Response) => {
 router.delete('/:orgId/invites/:inviteId', async (req: Request, res: Response) => {
   try {
     const { orgId, inviteId } = req.params;
-    const { requesterId } = req.body;
+    const requesterId = req.query.requesterId || req.body.requesterId;
+
+    if (!requesterId) {
+       return res.status(400).json({ error: 'Requester ID is required' });
+    }
 
     const { data: requester, error: reqError } = await supabase
       .from('organization_members')

@@ -228,10 +228,9 @@ export default function TeamPage() {
   const handleRevokeInvite = async (inviteId: string) => {
     if (!activeOrg || !user) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/invites/${inviteId}`, {
+      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/invites/${inviteId}?requesterId=${user.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requesterId: user.id })
+        headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
         setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
@@ -251,10 +250,9 @@ export default function TeamPage() {
 
     if (action === 'remove_member' && targetId) {
       try {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${targetId}`, {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${targetId}?requesterId=${user.id}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requesterId: user.id })
+          headers: { 'Content-Type': 'application/json' }
         });
         if (res.ok) {
           setMembers(members.filter(m => m.user_id !== targetId));
@@ -269,10 +267,9 @@ export default function TeamPage() {
     } 
     else if (action === 'delete_org') {
       try {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}`, {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}?requesterId=${user.id}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requesterId: user.id })
+          headers: { 'Content-Type': 'application/json' }
         });
         if (res.ok) {
           const updatedOrgs = organizations.filter(o => o.id !== activeOrg.id);
@@ -289,10 +286,9 @@ export default function TeamPage() {
     }
     else if (action === 'leave_org') {
       try {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/leave`, {
+        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/leave?userId=${user.id}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id })
+          headers: { 'Content-Type': 'application/json' }
         });
         if (res.ok) {
           const updatedOrgs = organizations.filter(o => o.id !== activeOrg.id);
