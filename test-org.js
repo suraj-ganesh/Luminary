@@ -14,7 +14,7 @@ async function test() {
     return;
   }
   if (!orgs || orgs.length === 0) {
-    console.log("No orgs found.");
+    console.log("No orgs found. Please create one on frontend.");
     return;
   }
   
@@ -34,12 +34,11 @@ async function test() {
     const admin = members.find(m => m.role === 'admin') || members[0];
     console.log("Admin ID:", admin.user_id);
 
-    console.log(`Sending DELETE to http://127.0.0.1:8080/api/orgs/${org.id}`);
+    console.log(`Sending DELETE to http://127.0.0.1:8080/api/orgs/${org.id}?requesterId=${admin.user_id}`);
     try {
-      const res = await fetch(`http://127.0.0.1:8080/api/orgs/${org.id}`, {
+      const res = await fetch(`http://127.0.0.1:8080/api/orgs/${org.id}?requesterId=${admin.user_id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requesterId: admin.user_id })
+        headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       console.log("Response status:", res.status);

@@ -133,7 +133,7 @@ export default function Home() {
     initial: { opacity: 0, y: 40, scale: 0.98 },
     whileInView: { opacity: 1, y: 0, scale: 1 },
     viewport: { once: true, amount: 0.3 }, // Triggers when 30% of the element is visible
-    transition: { duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }
+    transition: { duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] as any }
   };
 
   return (
