@@ -62,6 +62,7 @@ export default function TeamPage() {
   // Org Settings State
   const [isRenaming, setIsRenaming] = useState(false);
   const [editOrgName, setEditOrgName] = useState("");
+  const [isExecutingAction, setIsExecutingAction] = useState(false);
 
   // Toast State
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
@@ -248,8 +249,9 @@ export default function TeamPage() {
     setConfirmModal({ isOpen: false, action: 'remove_member' });
     if (!activeOrg || !user) return;
 
-    if (action === 'remove_member' && targetId) {
-      try {
+    setIsExecutingAction(true);
+    try {
+      if (action === 'remove_member' && targetId) {
         const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${targetId}?requesterId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
@@ -261,12 +263,7 @@ export default function TeamPage() {
           const data = await res.json();
           showToast(data.error || "Failed to remove member", 'error');
         }
-      } catch (error) {
-        showToast("Failed to remove member", 'error');
-      }
-    } 
-    else if (action === 'delete_org') {
-      try {
+      } else if (action === 'delete_org') {
         const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}?requesterId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
@@ -280,12 +277,7 @@ export default function TeamPage() {
           const data = await res.json();
           showToast(data.error || "Failed to delete organization", 'error');
         }
-      } catch (error) {
-        showToast("Failed to delete organization", 'error');
-      }
-    }
-    else if (action === 'leave_org') {
-      try {
+      } else if (action === 'leave_org') {
         const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/leave?userId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
@@ -299,10 +291,17 @@ export default function TeamPage() {
           const data = await res.json();
           showToast(data.error || "Failed to leave organization", 'error');
         }
-      } catch (error) {
-        showToast("Failed to leave organization", 'error');
       }
+    } catch (error) {
+      showToast(action === 'delete_org' ? "Failed to delete organization" : action === 'leave_org' ? "Failed to leave organization" : "Failed to remove member", 'error');
+    } finally {
+      setIsExecutingAction(false);
     }
+  };
+
+  const handleDeleteOrgClick = () => {
+    if (isExecutingAction) return;
+    setConfirmModal({ isOpen: true, action: 'delete_org' });
   };
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -343,8 +342,8 @@ export default function TeamPage() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl"
             >
-              <div className={`h-12 w-12 rounded-full flex items-center justify-center mb-6 ${confirmModal.action === 'remove_member' ? 'bg-red-100' : 'bg-orange-100'}`}>
-                {confirmModal.action === 'remove_member' ? <Trash2 className="h-6 w-6 text-red-600" /> : <LeaveIcon className="h-6 w-6 text-orange-600" />}
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center mb-6 ${confirmModal.action === 'delete_org' || confirmModal.action === 'remove_member' ? 'bg-red-100' : 'bg-orange-100'}`}>
+                {confirmModal.action === 'delete_org' || confirmModal.action === 'remove_member' ? <Trash2 className="h-6 w-6 text-red-600" /> : <LeaveIcon className="h-6 w-6 text-orange-600" />}
               </div>
               <h3 className="text-2xl font-bold tracking-tight mb-2">
                 {confirmModal.action === 'remove_member' ? 'Remove Member?' : confirmModal.action === 'delete_org' ? 'Delete Organization?' : 'Leave Organization?'}
@@ -357,15 +356,17 @@ export default function TeamPage() {
               <div className="flex gap-4">
                 <button 
                   onClick={() => setConfirmModal({ isOpen: false, action: 'remove_member' })}
-                  className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"
+                  disabled={isExecutingAction}
+                  className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={executeModalAction}
-                  className={`flex-1 py-3 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg ${confirmModal.action === 'remove_member' || confirmModal.action === 'delete_org' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'}`}
+                  disabled={isExecutingAction}
+                  className={`flex-1 py-3 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${confirmModal.action === 'remove_member' || confirmModal.action === 'delete_org' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'}`}
                 >
-                  {confirmModal.action === 'remove_member' ? 'Remove' : confirmModal.action === 'delete_org' ? 'Delete Org' : 'Leave Org'}
+                  {isExecutingAction ? 'Working...' : confirmModal.action === 'remove_member' ? 'Remove' : confirmModal.action === 'delete_org' ? 'Delete Org' : 'Leave Org'}
                 </button>
               </div>
             </motion.div>
@@ -463,14 +464,19 @@ export default function TeamPage() {
                          </div>
                          
                          {/* Action Buttons */}
-                         <div className="flex items-center gap-2 mt-2">
+                         <div className="flex flex-col items-end gap-2 mt-2">
                            {activeOrg.userRole === 'admin' ? (
-                             <button 
-                               onClick={() => setConfirmModal({ isOpen: true, action: 'delete_org' })}
-                               className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 transition-colors"
-                             >
-                               <Trash2 className="h-3 w-3" /> Delete
-                             </button>
+                             <div className="w-full">
+                               <button 
+                                 type="button"
+                                 onClick={handleDeleteOrgClick}
+                                 className="w-full px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-colors bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
+                                 aria-label="Delete Organization"
+                               >
+                                 <Trash2 className="h-3 w-3" />
+                                 Delete Org
+                               </button>
+                             </div>
                            ) : (
                              <button 
                                onClick={() => setConfirmModal({ isOpen: true, action: 'leave_org' })}
