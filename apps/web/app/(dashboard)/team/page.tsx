@@ -439,57 +439,33 @@ export default function TeamPage() {
                   <div className="glass-3d-panel p-10 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#3b83f5]/10 to-[#2ecac5]/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                     
-                    <div className="flex items-start justify-between mb-8">
-                       <div className="flex-1 mr-4">
-                          {activeOrg.userRole === 'admin' ? (
-                            <div className="flex items-center gap-3 group">
-                              <input 
-                                value={editOrgName}
-                                onChange={(e) => setEditOrgName(e.target.value)}
-                                onBlur={handleRenameOrg}
-                                onKeyDown={(e) => e.key === 'Enter' && handleRenameOrg()}
-                                className="text-3xl font-bold tracking-tight bg-transparent border-b border-transparent hover:border-black/10 focus:border-black/30 outline-none w-full transition-all"
-                              />
-                              <Edit2 className="h-4 w-4 text-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          ) : (
-                            <h2 className="text-3xl font-bold tracking-tight">{activeOrg.name}</h2>
-                          )}
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-2">ID: {activeOrg.id}</p>
+                    <div className="flex items-start justify-between mb-8 gap-4">
+                       <div className="flex-1">
+                         {/* Title Section */}
+                         {activeOrg.userRole === 'admin' ? (
+                           <div className="flex items-center gap-3 group">
+                             <input 
+                               value={editOrgName}
+                               onChange={(e) => setEditOrgName(e.target.value)}
+                               onBlur={handleRenameOrg}
+                               onKeyDown={(e) => e.key === 'Enter' && handleRenameOrg()}
+                               className="text-3xl font-bold tracking-tight bg-transparent border-b border-transparent hover:border-black/10 focus:border-black/30 outline-none w-full transition-all"
+                             />
+                             <Edit2 className="h-4 w-4 text-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                           </div>
+                         ) : (
+                           <h2 className="text-3xl font-bold tracking-tight">{activeOrg.name}</h2>
+                         )}
+                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-2">ID: {activeOrg.id}</p>
                        </div>
                        
-                       <div className="flex flex-col items-end gap-2">
-                         <div className="h-14 w-14 rounded-2xl bg-black flex items-center justify-center text-white shadow-xl shadow-black/20">
-                            <Users className="h-6 w-6" />
-                         </div>
-                         
-                         {/* Action Buttons */}
-                         <div className="flex flex-col items-end gap-2 mt-2">
-                           {activeOrg.userRole === 'admin' ? (
-                             <div className="w-full">
-                               <button 
-                                 type="button"
-                                 onClick={handleDeleteOrgClick}
-                                 className="w-full px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-colors bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
-                                 aria-label="Delete Organization"
-                               >
-                                 <Trash2 className="h-3 w-3" />
-                                 Delete Org
-                               </button>
-                             </div>
-                           ) : (
-                             <button 
-                               onClick={() => setConfirmModal({ isOpen: true, action: 'leave_org' })}
-                               className="px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 transition-colors"
-                             >
-                               <LeaveIcon className="h-3 w-3" /> Leave
-                             </button>
-                           )}
-                         </div>
+                       {/* Profile Logo Box - Top Right */}
+                       <div className="h-14 w-14 rounded-2xl bg-black flex items-center justify-center text-white shadow-xl shadow-black/20 flex-shrink-0">
+                          <Users className="h-6 w-6" />
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                        <div className="p-4 bg-black/5 rounded-2xl">
                           <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Your Role</p>
                           <p className="font-bold capitalize">{activeOrg.userRole}</p>
@@ -498,6 +474,41 @@ export default function TeamPage() {
                           <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Created</p>
                           <p className="font-bold">{new Date(activeOrg.created_at).toLocaleDateString()}</p>
                        </div>
+                    </div>
+
+                    {/* Action Buttons - Under Role Section */}
+                    <div className="flex gap-3 mb-8">
+                       {/* Delete Button - Admin Only */}
+                       {activeOrg.userRole === 'admin' && (
+                         <button
+                           type="button"
+                           onClick={() => {
+                             console.log('Delete button clicked');
+                             setConfirmModal({ isOpen: true, action: 'delete_org' });
+                           }}
+                           className="h-14 w-14 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-500/20 hover:bg-red-700 transition-colors cursor-pointer"
+                           aria-label="Delete Organization"
+                           title="Delete Organization"
+                         >
+                           <Trash2 className="h-6 w-6" />
+                         </button>
+                       )}
+
+                       {/* Leave Button - Non-Admin Only */}
+                       {activeOrg.userRole !== 'admin' && (
+                         <button
+                           type="button"
+                           onClick={() => {
+                             console.log('Leave button clicked');
+                             setConfirmModal({ isOpen: true, action: 'leave_org' });
+                           }}
+                           className="px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-red-700 rounded-sm text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 transition-colors cursor-pointer h-14 flex-shrink-0"
+                           aria-label="Leave Organization"
+                           title="Leave Organization"
+                         >
+                           <LeaveIcon className="h-5 w-9" />
+                         </button>
+                       )}
                     </div>
                   </div>
 
