@@ -24,7 +24,8 @@ import {
   Users,
   Zap,
   Info,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import NotificationBell from "../../../components/NotificationBell";
@@ -61,6 +62,8 @@ export default function DeveloperPage() {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [webhookModal, setWebhookModal] = useState<{ type: string, isOpen: boolean }>({ type: '', isOpen: false });
   const [integrationWebhookUrl, setIntegrationWebhookUrl] = useState("");
+  const [deleteKeyModal, setDeleteKeyModal] = useState<{ isOpen: boolean; keyId: string | null; keyName: string | null }>({ isOpen: false, keyId: null, keyName: null });
+  const [isDeletingKey, setIsDeletingKey] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -290,19 +293,37 @@ export default function DeveloperPage() {
     }
   };
 
-  const handleRevokeKey = async (id: string) => {
-    if (!confirm("Are you sure you want to revoke this API key? This action cannot be undone.")) return;
+  const openRevokeKeyModal = (id: string, name: string) => {
+    setDeleteKeyModal({ isOpen: true, keyId: id, keyName: name });
+  };
+
+  const closeRevokeKeyModal = () => {
+    if (isDeletingKey) return;
+    setDeleteKeyModal({ isOpen: false, keyId: null, keyName: null });
+  };
+
+  const handleRevokeKey = async () => {
+    if (!deleteKeyModal.keyId || !user) return;
+    setIsDeletingKey(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/keys/${id}`, {
+      const res = await fetch(`http://localhost:8080/api/keys/${deleteKeyModal.keyId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id })
       });
       if (res.ok) {
-        setApiKeys(apiKeys.filter(k => k.id !== id));
+        setApiKeys(apiKeys.filter(k => k.id !== deleteKeyModal.keyId));
+        showToast('API key revoked successfully', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data?.error || 'Failed to revoke API key', 'error');
       }
     } catch (error) {
-      console.error("Failed to revoke key:", error);
+      console.error('Failed to revoke key:', error);
+      showToast('Failed to revoke API key', 'error');
+    } finally {
+      setIsDeletingKey(false);
+      closeRevokeKeyModal();
     }
   };
 
@@ -337,6 +358,60 @@ export default function DeveloperPage() {
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteKeyModal.isOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={closeRevokeKeyModal}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative z-10 w-full max-w-lg rounded-[2rem] bg-white p-8 shadow-2xl border border-black/10"
+            >
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-red-50 text-red-600">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <button onClick={closeRevokeKeyModal} className="text-black/40 hover:text-black transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight mb-2">Revoke API Key</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                Are you sure you want to revoke <span className="font-semibold text-black">{deleteKeyModal.keyName || 'this key'}</span>? This action cannot be undone and any service using it will lose access immediately.
+              </p>
+              <div className="rounded-3xl bg-black/5 p-4 mb-6">
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-black/60">Warning</p>
+                <p className="text-sm text-black/70 mt-1">Revoked keys cannot be recovered. Generate a new key if you need access again.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={closeRevokeKeyModal}
+                  disabled={isDeletingKey}
+                  className="flex-1 rounded-full border border-black/10 bg-white py-3 text-[10px] font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRevokeKey}
+                  disabled={isDeletingKey}
+                  className="flex-1 rounded-full bg-red-600 py-3 text-white text-[10px] font-bold uppercase tracking-widest shadow-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDeletingKey ? 'Revoking…' : 'Revoke Key'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
         {loading ? (
           <div className="max-w-4xl mx-auto space-y-16 animate-pulse">
             <div className="space-y-4">
@@ -406,7 +481,7 @@ export default function DeveloperPage() {
                         </div>
                       </div>
                       <button 
-                        onClick={() => handleRevokeKey(key.id)}
+                        onClick={() => openRevokeKeyModal(key.id, key.name)}
                         className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-red-100 text-red-500 transition-colors opacity-0 group-hover/key:opacity-100"
                         title="Revoke Key"
                       >
@@ -655,43 +730,84 @@ export default function DeveloperPage() {
       {/* Secret Key Modal */}
       <AnimatePresence>
         {revealedKey && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              onClick={() => setRevealedKey(null)}
               className="absolute inset-0 bg-black/40 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] p-10 shadow-2xl border border-black/10 overflow-hidden text-center"
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] p-12 shadow-2xl border border-black/10 overflow-hidden"
             >
-              <div className="h-16 w-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle className="h-8 w-8" />
-              </div>
-              <h3 className="text-3xl font-light tracking-tighter mb-4">Save Your API Key</h3>
-              <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
-                Please copy this API key and store it somewhere safe. For your security, <strong className="text-black">we will never show it to you again.</strong>
-              </p>
-
-              <div className="flex items-center justify-between bg-black/5 border border-black/10 p-4 rounded-2xl mb-8">
-                <code className="font-mono text-sm tracking-tight text-black">{revealedKey}</code>
-                <button 
-                  onClick={() => copyToClipboard(revealedKey)}
-                  className="h-10 w-10 flex items-center justify-center rounded-xl bg-white shadow-sm hover:bg-gray-50 transition-colors"
+              <div className="flex items-start justify-between mb-8">
+                <div className="flex-1">
+                  <div className="h-16 w-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <AlertTriangle className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-4xl font-light tracking-tighter mb-3">Save Your API Key</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed max-w-md">
+                    Please copy this API key and store it somewhere safe. For your security, <strong className="text-black">we will never show it to you again.</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setRevealedKey(null)}
+                  className="text-black/40 hover:text-black/60 transition-colors"
                 >
-                  {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  <X className="h-6 w-6" />
                 </button>
               </div>
 
-              <button 
-                onClick={() => setRevealedKey(null)}
-                className="w-full py-4 rounded-full bg-black text-white text-[11px] font-bold uppercase tracking-widest hover:bg-black/90 transition-colors"
-              >
-                I have saved my key
-              </button>
+              <div className="bg-black/[0.02] border-2 border-black/10 rounded-2xl p-0 mb-8 overflow-hidden">
+                <div className="bg-black p-6 rounded-2xl">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-3">Your API Key</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <code className="font-mono text-sm text-white/90 break-all leading-relaxed">{revealedKey}</code>
+                    <button 
+                      onClick={() => copyToClipboard(revealedKey)}
+                      className="h-12 w-12 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0"
+                      title="Copy to clipboard"
+                    >
+                      {copied ? <CheckCircle2 className="h-5 w-5 text-green-400" /> : <Copy className="h-5 w-5 text-white" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-8 flex gap-3">
+                <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed text-blue-700 font-medium">
+                  This key provides full access to your account. Never share it or commit it to version control. Treat it like a password.
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setRevealedKey(null)}
+                  className="flex-1 py-4 rounded-full bg-black/5 hover:bg-black/10 border border-black/5 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                >
+                  Close
+                </button>
+                <button 
+                  onClick={() => {
+                    copyToClipboard(revealedKey);
+                    setTimeout(() => setRevealedKey(null), 500);
+                  }}
+                  className="flex-1 py-4 rounded-full bg-black text-white text-[10px] font-bold uppercase tracking-widest hover:bg-black/90 transition-colors shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Copy className="h-4 w-4" /> Copy & Close
+                </button>
+              </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

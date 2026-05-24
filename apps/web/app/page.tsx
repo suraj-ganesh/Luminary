@@ -14,7 +14,8 @@ import {
   X,
   Trash2,
   ExternalLink,
-  Activity
+  Activity,
+  Loader2
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -40,6 +41,7 @@ export default function Home() {
   const [recentScans, setRecentScans] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string, url: string } | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const router = useRouter();
 
 
@@ -73,9 +75,12 @@ export default function Home() {
 
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
-    if (url) {
-      router.push(`/scan?url=${encodeURIComponent(url)}`);
+    if (!url) return;
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('luminary_scan_url', url);
     }
+    setIsScanning(true);
+    router.push('/scan');
   };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -209,8 +214,17 @@ export default function Home() {
                 <div className="flex-1 url-box-input-wrapper overflow-hidden">
                   <input className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg text-[#1a1a1a] placeholder:text-[#1a1a1a]/30 font-medium" placeholder="Enter website URL..." type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
                 </div>
-                <button type="submit" className="glass-3d-button h-16 px-8 md:px-12 text-[11px] font-bold uppercase tracking-[0.2em] flex items-center gap-4 !rounded-full shadow-2xl shrink-0">
-                  Scan Now <ArrowRight className="h-5 w-5" />
+                <button type="submit" disabled={isScanning} className="glass-3d-button h-16 px-8 md:px-12 text-[11px] font-bold uppercase tracking-[0.2em] flex items-center gap-4 !rounded-full shadow-2xl shrink-0 disabled:cursor-not-allowed disabled:opacity-80">
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Scanning
+                    </>
+                  ) : (
+                    <>
+                      Scan Now <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
+import {
   Loader2, 
   ChevronLeft, 
   Download, 
@@ -14,7 +14,8 @@ import {
   Clock,
   ArrowRight,
   Sparkles,
-  LayoutDashboard
+  LayoutDashboard,
+  Sparkles as SparklesIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ViolationCard } from "../../components/ViolationCard";
@@ -45,12 +46,19 @@ export default function ScanPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const rawUrl = params.get("url");
-    if (!rawUrl) {
+    const sessionUrl = typeof window !== 'undefined' ? window.sessionStorage.getItem('luminary_scan_url') : null;
+    const selectedUrl = rawUrl || sessionUrl;
+
+    if (!selectedUrl) {
       router.push("/");
       return;
     }
-    setScanUrl(rawUrl);
-    window.history.replaceState(null, '', '/scan');
+
+    setScanUrl(selectedUrl);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('luminary_scan_url');
+      window.history.replaceState(null, '', '/scan');
+    }
   }, [router]);
 
   // Set dynamic browser tab title
@@ -82,11 +90,11 @@ export default function ScanPage() {
         const data = await response.json();
         setResults(data);
         
-        // Redirect to report page after successful scan
+        // Keep results page displayed for 3 seconds before redirecting to full report
         if (data?.id) {
           setTimeout(() => {
             router.push(`/report/${data.id}`);
-          }, 1500);
+          }, 3000);
         }
       } catch (err: any) {
         setError(err.message);
@@ -105,14 +113,92 @@ export default function ScanPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#e3e2c3] flex flex-col items-center justify-center space-y-10 font-poppins">
-        <div className="relative">
-          <div className="absolute -inset-10 bg-[#3b83f5]/10 blur-3xl animate-pulse rounded-full"></div>
-          <Loader2 className="h-16 w-16 animate-spin text-primary relative z-10" />
+      <div className="min-h-screen bg-gradient-to-br from-[#e3e2c3] via-[#f0eedc] to-[#e3e2c3] flex flex-col items-center justify-center space-y-12 font-poppins overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="absolute top-20 right-20 w-72 h-72 bg-[#3b83f5]/10 blur-3xl rounded-full"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+            className="absolute bottom-20 left-20 w-96 h-96 bg-[#2ecac5]/10 blur-3xl rounded-full"
+          />
         </div>
-        <div className="text-center space-y-3 animate-pulse">
-           <h2 className="text-2xl font-bold tracking-tight uppercase">Neural Scanning...</h2>
-           <p className="text-muted-foreground text-sm font-light tracking-[0.2em]">{scanUrl}</p>
+
+        {/* Scanning Content */}
+        <div className="relative z-10 text-center space-y-8">
+          {/* Animated Loader */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="flex flex-col items-center gap-8"
+          >
+            <div className="relative w-24 h-24">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 border-4 border-transparent border-t-[#3b83f5] border-r-[#2ecac5] rounded-full"
+              />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-2 border-2 border-transparent border-b-[#3b83f5] rounded-full"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="h-8 w-8 text-[#3b83f5]" />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Scanning Status */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="space-y-3"
+          >
+            <h2 className="text-4xl font-light tracking-tighter uppercase">Neural Scanning in Progress</h2>
+            <p className="text-muted-foreground text-lg font-light tracking-[0.1em]">{scanUrl}</p>
+          </motion.div>
+
+          {/* Progress Indicator */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="space-y-4 pt-4"
+          >
+            <div className="flex items-center justify-center gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                  className="h-2 w-2 rounded-full bg-[#3b83f5]"
+                />
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 border border-black/10">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
+                <Loader2 className="h-4 w-4 text-[#3b83f5]" />
+              </motion.div>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-black/60">Analyzing...</span>
+            </div>
+          </motion.div>
+
+          {/* Estimated Time */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60"
+          >
+            Estimated time: 2-5 seconds
+          </motion.p>
         </div>
       </div>
     );
