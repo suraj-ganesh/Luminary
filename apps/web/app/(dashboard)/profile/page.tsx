@@ -20,16 +20,43 @@ import {
   CheckCircle2,
   Users
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import UsageIndicator from "../../../components/UsageIndicator";
 import NotificationBell from "../../../components/NotificationBell";
+
+// Custom Toast Component
+const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9, y: 20 }}
+      className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 border ${
+        type === 'success' ? 'bg-green-500 text-white border-green-600' : 'bg-red-500 text-white border-red-600'
+      }`}
+    >
+      {type === 'success' && <CheckCircle2 className="h-4 w-4" />}
+      {type === 'error' && <Trash2 className="h-4 w-4" />}
+      <span className="text-[11px] font-bold uppercase tracking-widest">{message}</span>
+    </motion.div>
+  );
+};
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [scanCount, setScanCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const router = useRouter();
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     const checkUser = async () => {
@@ -38,6 +65,7 @@ export default function ProfilePage() {
         router.push("/login");
       } else {
         setUser(user);
+        setFullName(user?.user_metadata?.username || "");
         // Fetch profile
         const { data: profileData } = await supabase
           .from('profiles')
@@ -57,6 +85,24 @@ export default function ProfilePage() {
     };
     checkUser();
   }, [router]);
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { username: fullName }
+      });
+      if (error) throw error;
+      setUser({ ...user, user_metadata: { ...user.user_metadata, username: fullName } });
+      showToast("Profile updated successfully", "success");
+    } catch (error) {
+      console.error("Update failed:", error);
+      showToast("Failed to update profile", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -82,7 +128,12 @@ export default function ProfilePage() {
 
   return (
     <>
-        {loading ? (
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </AnimatePresence>
+      
+      {loading ? (
           <div className="max-w-4xl mx-auto space-y-16 animate-pulse">
             <div className="space-y-4">
                <div className="h-8 w-32 bg-black/5 rounded-full mb-2"></div>
@@ -141,7 +192,8 @@ export default function ProfilePage() {
                     <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Full Name</label>
                     <input 
                       type="text" 
-                      defaultValue={user?.user_metadata?.username || ''}
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       className="w-full h-14 px-6 bg-white/40 border border-black/5 rounded-2xl text-sm outline-none focus:bg-white transition-all focus:ring-2 focus:ring-black/5" 
                       placeholder="Your name"
                     />
@@ -156,8 +208,11 @@ export default function ProfilePage() {
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Email cannot be changed directly. Contact support.</p>
                   </div>
-                  <button className="glass-3d-button h-12 px-8 text-[10px] font-bold uppercase tracking-widest rounded-full">
-                    Save Changes
+                  <button 
+                    onClick={handleSaveChanges}
+                    disabled={isSaving}
+                    className="glass-3d-button h-12 px-8 text-[10px] font-bold uppercase tracking-widest rounded-full disabled:opacity-50">
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>

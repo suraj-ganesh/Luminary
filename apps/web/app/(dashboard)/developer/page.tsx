@@ -251,9 +251,13 @@ export default function DeveloperPage() {
         setRevealedKey(data.key); // Show the full key in the modal
         setApiKeys([data.metadata, ...apiKeys]);
         setNewKeyName("");
+        showToast("API Key generated successfully. Save it now!", "success");
+      } else {
+        showToast("Failed to generate key", "error");
       }
     } catch (error) {
       console.error("Failed to generate key:", error);
+      showToast("Error generating key", "error");
     } finally {
       setIsGenerating(false);
     }

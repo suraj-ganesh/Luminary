@@ -215,6 +215,65 @@ export default function DashboardPage() {
     setConfirmDelete({ type: 'scan', id, url });
   };
 
+  const handleExportEstateSummary = async () => {
+    if (monitoredSites.length === 0) {
+      showToast("No sites to export", "error");
+      return;
+    }
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      const brandColor = [59, 131, 245];
+      const textColor = [26, 26, 26];
+
+      // Header
+      doc.setFillColor(19, 19, 20);
+      doc.rect(0, 0, 210, 40, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("LUMINARY", 20, 22);
+      doc.setFontSize(10);
+      doc.text("PORTFOLIO COMPLIANCE REPORT", 160, 25);
+
+      // Report Details
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Portfolio Summary", 20, 60);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 70);
+      doc.text(`Total Sites: ${monitoredSites.length}`, 20, 78);
+      doc.text(`Average Score: ${scans.length > 0 ? (scans.reduce((a, s) => a + s.score, 0) / scans.length).toFixed(1) : "N/A"}%`, 20, 86);
+
+      let yPos = 100;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Monitored Sites", 20, yPos);
+      yPos += 10;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      monitoredSites.forEach((site) => {
+        const siteScans = scans.filter(s => s.url === site.url);
+        const avgScore = siteScans.length > 0 ? (siteScans.reduce((a, s) => a + s.score, 0) / siteScans.length).toFixed(1) : "N/A";
+        doc.text(`• ${site.url.replace('https://', '')} - Score: ${avgScore}%`, 20, yPos);
+        yPos += 6;
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+      });
+
+      doc.save("luminary-portfolio-compliance.pdf");
+      showToast("Portfolio compliance report exported successfully", "success");
+    } catch (error) {
+      console.error("Export failed:", error);
+      showToast("Failed to export report", "error");
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
@@ -314,7 +373,7 @@ export default function DashboardPage() {
                        <p className="text-white/40 text-[11px] font-bold uppercase tracking-[0.2em]">Generate a single PDF report for all {monitoredSites.length} monitored domains</p>
                     </div>
                     <button 
-                       onClick={() => showToast("Generating full estate compliance report...", "success")}
+                       onClick={handleExportEstateSummary}
                        className="h-16 px-10 bg-white text-black rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-gray-100 transition-all flex items-center gap-3 shadow-2xl"
                     >
                        <Download className="h-4 w-4" /> Export Estate Summary
@@ -346,7 +405,10 @@ export default function DashboardPage() {
                        </div>
                     )}
                  </div>
-                 <button className="w-full py-4 mt-6 rounded-2xl bg-black/5 hover:bg-black hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest">
+                 <button 
+                   onClick={() => router.push("/settings")}
+                   className="w-full py-4 mt-6 rounded-2xl bg-black/5 hover:bg-black hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
+                 >
                     Manage Schedules
                  </button>
               </div>

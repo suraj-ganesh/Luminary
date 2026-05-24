@@ -81,6 +81,13 @@ export default function ScanPage() {
         if (!response.ok) throw new Error("Neural link failed. Target inaccessible.");
         const data = await response.json();
         setResults(data);
+        
+        // Redirect to report page after successful scan
+        if (data?.id) {
+          setTimeout(() => {
+            router.push(`/report/${data.id}`);
+          }, 1500);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -89,7 +96,7 @@ export default function ScanPage() {
     };
 
     init();
-  }, [scanUrl]);
+  }, [scanUrl, router]);
 
   const handleShare = () => {
     if (!results?.id) return;
