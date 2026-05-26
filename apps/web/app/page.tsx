@@ -166,7 +166,7 @@ export default function Home() {
             </span>
           </Link>
           <nav className="hidden lg:flex gap-10 shrink-0">
-            <Link className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 hover:text-black transition-all" href="/#features">Features</Link>
+            {!user && <Link className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 hover:text-black transition-all" href="/#features">Features</Link>}
             {user && <Link className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 hover:text-black transition-all" href="/#history">History</Link>}
             <Link className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/80 hover:text-black transition-all" href="/pricing">Pricing</Link>
           </nav>
