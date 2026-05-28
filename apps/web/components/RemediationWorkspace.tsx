@@ -13,6 +13,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getApiUrl } from "../lib/api";
 
 interface RemediationWorkspaceProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export default function RemediationWorkspace({ isOpen, onClose, violation }: Rem
   const fetchRemediation = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/remediation/generate`, {
+      const response = await fetch(`${getApiUrl()}/api/remediation/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

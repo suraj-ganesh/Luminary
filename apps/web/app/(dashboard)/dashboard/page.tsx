@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { getApiUrl } from "../../../lib/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -119,7 +120,7 @@ export default function DashboardPage() {
     }
     setIsAdding(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/register`, {
+      const response = await fetch(`${getApiUrl()}/api/monitoring/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ export default function DashboardPage() {
     
     if (type === 'site') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${getApiUrl()}/api/monitoring/${id}`, { method: 'DELETE' });
         if (res.ok) {
           setMonitoredSites(monitoredSites.filter(site => site.id !== id));
           showToast("Site removed from watchlist");
@@ -159,7 +160,7 @@ export default function DashboardPage() {
       }
     } else if (type === 'scan' && url) {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/scan/bulk/site`, {
+        const res = await fetch(`${getApiUrl()}/api/scan/bulk/site`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url, userId: user.id })
@@ -180,7 +181,7 @@ export default function DashboardPage() {
 
   const handleToggleMonitoring = async (id: string, currentStatus: boolean) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/${id}/toggle`, {
+      const res = await fetch(`${getApiUrl()}/api/monitoring/${id}/toggle`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !currentStatus })
@@ -196,7 +197,7 @@ export default function DashboardPage() {
 
   const handleTriggerScan = async (id: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/monitoring/${id}/trigger`, {
+      const res = await fetch(`${getApiUrl()}/api/monitoring/${id}/trigger`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -223,8 +224,8 @@ export default function DashboardPage() {
     try {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF();
-      const brandColor = [59, 131, 245];
-      const textColor = [26, 26, 26];
+      const brandColor = [59, 131, 245] as const;
+      const textColor = [26, 26, 26] as const;
 
       // Header
       doc.setFillColor(19, 19, 20);

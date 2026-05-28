@@ -23,6 +23,7 @@ import { ScoreChart } from "../../../components/ScoreChart";
 import dynamic from "next/dynamic";
 import { supabase } from "../../../lib/supabase";
 import ShareModal from "../../../components/ShareModal";
+import { getApiUrl } from "../../../lib/api";
 
 const ExportPDF = dynamic(() => import("../../../components/ExportPDF"), { 
   ssr: false,
@@ -44,7 +45,7 @@ export default function ReportPage() {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/scan/${params.id}`);
+        const response = await fetch(`${getApiUrl()}/api/scan/${params.id}`);
         if (!response.ok) throw new Error("Report not found or inaccessible.");
         const data = await response.json();
         setResults(data);

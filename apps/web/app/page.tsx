@@ -23,6 +23,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
+import { getApiUrl } from "../lib/api";
 
 const ExportPDF = dynamic(() => import("../components/ExportPDF"), { 
   ssr: false,
@@ -95,7 +96,7 @@ export default function Home() {
   const executeDelete = async () => {
     if (!confirmDelete || !user) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/scan/bulk/site`, {
+      const response = await fetch(`${getApiUrl()}/api/scan/bulk/site`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: confirmDelete.url, userId: user.id })

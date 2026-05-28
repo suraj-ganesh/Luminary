@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import NotificationBell from "../../../components/NotificationBell";
+import { getApiUrl } from "../../../lib/api";
+
 
 // Custom Toast Component
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error' | 'info', onClose: () => void }) => {
@@ -101,7 +103,7 @@ export default function TeamPage() {
   const fetchMembers = async (orgId: string) => {
     setIsLoadingMembers(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${orgId}/members`);
+      const res = await fetch(`${getApiUrl()}/api/orgs/${orgId}/members`);
       if (res.ok) {
         const data = await res.json();
         setMembers(data);
@@ -115,7 +117,7 @@ export default function TeamPage() {
 
   const fetchPendingInvites = async (orgId: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${orgId}/invites`);
+      const res = await fetch(`${getApiUrl()}/api/orgs/${orgId}/invites`);
       if (res.ok) {
         const data = await res.json();
         setPendingInvites(data);
@@ -127,7 +129,7 @@ export default function TeamPage() {
 
   const fetchOrganizations = async (userId: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/list/${userId}`);
+      const res = await fetch(`${getApiUrl()}/api/orgs/list/${userId}`);
       if (res.ok) {
         const data = await res.json();
         setOrganizations(data);
@@ -148,7 +150,7 @@ export default function TeamPage() {
     if (!newOrgName || !user) return;
     setIsCreating(true);
     try {
-      const res = await fetch('http://localhost:8080/api/orgs/create', {
+      const res = await fetch(`${getApiUrl()}/api/orgs/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, name: newOrgName })
@@ -172,7 +174,7 @@ export default function TeamPage() {
     if (!activeOrg || !editOrgName || !user) return;
     setIsRenaming(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}`, {
+      const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requesterId: user.id, name: editOrgName })
@@ -198,7 +200,7 @@ export default function TeamPage() {
     if (!inviteEmail || !activeOrg || !user) return;
     setIsInviting(true);
     try {
-      const res = await fetch('http://localhost:8080/api/orgs/invite', {
+      const res = await fetch(`${getApiUrl()}/api/orgs/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orgId: activeOrg.id, email: inviteEmail, role: 'viewer', requesterId: user.id })
@@ -229,7 +231,7 @@ export default function TeamPage() {
   const handleRevokeInvite = async (inviteId: string) => {
     if (!activeOrg || !user) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/invites/${inviteId}?requesterId=${user.id}`, {
+      const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}/invites/${inviteId}?requesterId=${user.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -252,7 +254,7 @@ export default function TeamPage() {
     setIsExecutingAction(true);
     try {
       if (action === 'remove_member' && targetId) {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${targetId}?requesterId=${user.id}`, {
+        const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}/members/${targetId}?requesterId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -264,7 +266,7 @@ export default function TeamPage() {
           showToast(data.error || "Failed to remove member", 'error');
         }
       } else if (action === 'delete_org') {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}?requesterId=${user.id}`, {
+        const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}?requesterId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -278,7 +280,7 @@ export default function TeamPage() {
           showToast(data.error || "Failed to delete organization", 'error');
         }
       } else if (action === 'leave_org') {
-        const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/leave?userId=${user.id}`, {
+        const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}/leave?userId=${user.id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -307,7 +309,7 @@ export default function TeamPage() {
   const handleUpdateRole = async (userId: string, newRole: string) => {
     if (!activeOrg || !user) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/orgs/${activeOrg.id}/members/${userId}`, {
+      const res = await fetch(`${getApiUrl()}/api/orgs/${activeOrg.id}/members/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requesterId: user.id, role: newRole })
@@ -612,7 +614,7 @@ export default function TeamPage() {
                                <div className="flex items-center gap-2">
                                  <button 
                                    onClick={() => {
-                                      navigator.clipboard.writeText(`http://localhost:3000/invite/${invite.token}`);
+                                      navigator.clipboard.writeText(`${window.location.origin}/invite/${invite.token}`);
                                       showToast("Invite link copied", "info");
                                    }}
                                    className="h-8 w-8 flex items-center justify-center rounded-lg bg-black/5 hover:bg-black/10 transition-colors"

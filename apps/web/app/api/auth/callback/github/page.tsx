@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { getApiUrl } from "../../../../../lib/api";
 
 function CallbackContent() {
   const router = useRouter();
@@ -22,9 +23,8 @@ function CallbackContent() {
     }
 
     const exchangeCode = async () => {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       try {
-        const res = await fetch(`${apiUrl}/api/integrations/github/callback`, {
+        const res = await fetch(`${getApiUrl()}/api/integrations/github/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, userId })

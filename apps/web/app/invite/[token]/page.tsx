@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabase";
 import { Shield, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { getApiUrl } from "../../../lib/api";
 
 export default function InvitePage({ params }: { params: { token: string } }) {
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'unauthenticated'>('loading');
@@ -24,7 +25,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
       }
 
       try {
-        const res = await fetch('http://localhost:8080/api/orgs/invites/accept', {
+        const res = await fetch(`${getApiUrl()}/api/orgs/invites/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: params.token, userId: user.id })

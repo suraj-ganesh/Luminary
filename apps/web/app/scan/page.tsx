@@ -23,6 +23,7 @@ import { ScoreChart } from "../../components/ScoreChart";
 import dynamic from "next/dynamic";
 import { supabase } from "../../lib/supabase";
 import ShareModal from "../../components/ShareModal";
+import { getApiUrl } from "../../lib/api";
 
 const ExportPDF = dynamic(() => import("../../components/ExportPDF"), { 
   ssr: false,
@@ -80,7 +81,7 @@ export default function ScanPage() {
       setUser(user);
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/scan`, {
+        const response = await fetch(`${getApiUrl()}/api/scan`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: scanUrl, userId: user?.id }),

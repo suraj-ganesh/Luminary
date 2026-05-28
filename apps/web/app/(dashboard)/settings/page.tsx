@@ -20,6 +20,7 @@ import {
   Shield
 } from "lucide-react";
 import NotificationBell from "../../../components/NotificationBell";
+import { getApiUrl } from "../../../lib/api";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
@@ -66,7 +67,7 @@ export default function SettingsPage() {
     if (!user) return;
     setSaving(true);
     try {
-      await fetch(`http://localhost:8080/api/notifications/${user.id}/preferences`, {
+      await fetch(`${getApiUrl()}/api/notifications/${user.id}/preferences`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notify_score_drop: notifyScoreDrop, notify_digest: notifyDigest })

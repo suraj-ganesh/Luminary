@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { Bell, CheckCircle2, AlertTriangle, Info, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { getApiUrl } from "../lib/api";
 
 export default function NotificationBell({ userId }: { userId: string }) {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -16,7 +17,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/notifications/${userId}`);
+      const res = await fetch(`${getApiUrl()}/api/notifications/${userId}`);
       if (res.ok) {
         const data = await res.json();
         // Check if there are any unread notifications that we haven't seen yet
@@ -56,7 +57,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`http://localhost:8080/api/notifications/${id}/read`, { method: 'PATCH' });
+      await fetch(`${getApiUrl()}/api/notifications/${id}/read`, { method: 'PATCH' });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (error) {
       console.error("Failed to mark as read:", error);
@@ -73,7 +74,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const markAllAsRead = async () => {
     try {
-      await fetch(`http://localhost:8080/api/notifications/${userId}/read-all`, { method: 'PATCH' });
+      await fetch(`${getApiUrl()}/api/notifications/${userId}/read-all`, { method: 'PATCH' });
       setNotifications([]);
       setIsOpen(false);
     } catch (error) {

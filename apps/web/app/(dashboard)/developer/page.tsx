@@ -30,6 +30,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import NotificationBell from "../../../components/NotificationBell";
 import { FaGithub, FaSlack, FaDiscord } from "react-icons/fa";
+import { getApiUrl } from "../../../lib/api";
+
 
 // Custom Toast Component
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => {
@@ -93,7 +95,7 @@ export default function DeveloperPage() {
 
   const fetchKeys = async (userId: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/keys/${userId}`);
+      const res = await fetch(`${getApiUrl()}/api/keys/${userId}`);
       if (res.ok) {
         const data = await res.json();
         setApiKeys(data);
@@ -105,7 +107,7 @@ export default function DeveloperPage() {
 
   const fetchWebhooks = async (userId: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/webhooks/${userId}`);
+      const res = await fetch(`${getApiUrl()}/api/webhooks/${userId}`);
       if (res.ok) {
         const data = await res.json();
         setWebhooks(data);
@@ -119,7 +121,7 @@ export default function DeveloperPage() {
 
   const fetchIntegrations = async (userId: string) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/integrations/${userId}`);
+      const res = await fetch(`${getApiUrl()}/api/integrations/${userId}`);
       if (res.ok) {
         const data = await res.json();
         setIntegrations(data);
@@ -132,7 +134,7 @@ export default function DeveloperPage() {
   const handleConnectIntegration = async (type: string) => {
     if (!user) return;
     setIsConnecting(type);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = getApiUrl();
     console.log(`Connecting to ${type} at ${apiUrl}`);
     try {
       if (type === 'github') {
@@ -178,7 +180,7 @@ export default function DeveloperPage() {
   const handleSaveIntegrationWebhook = async () => {
     if (!integrationWebhookUrl || !user) return;
     setIsConnecting(webhookModal.type);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = getApiUrl();
 
     try {
       const res = await fetch(`${apiUrl}/api/integrations/connect`, {
@@ -208,7 +210,7 @@ export default function DeveloperPage() {
   };
 
   const handleRemoveIntegration = async (id: string) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = getApiUrl();
     try {
       const res = await fetch(`${apiUrl}/api/integrations/${id}`, {
         method: 'DELETE'
@@ -226,7 +228,7 @@ export default function DeveloperPage() {
   };
 
   const handleTestIntegration = async (id: string) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = getApiUrl();
     try {
       const res = await fetch(`${apiUrl}/api/integrations/${id}/test`, { method: 'POST' });
       if (res.ok) {
@@ -244,7 +246,7 @@ export default function DeveloperPage() {
     if (!newKeyName || !user) return;
     setIsGenerating(true);
     try {
-      const res = await fetch('http://localhost:8080/api/keys/generate', {
+      const res = await fetch(`${getApiUrl()}/api/keys/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, name: newKeyName })
@@ -270,7 +272,7 @@ export default function DeveloperPage() {
     if (!newWebhookUrl || !user) return;
     setIsRegisteringWebhook(true);
     try {
-      const res = await fetch('http://localhost:8080/api/webhooks/register', {
+      const res = await fetch(`${getApiUrl()}/api/webhooks/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -306,7 +308,7 @@ export default function DeveloperPage() {
     if (!deleteKeyModal.keyId || !user) return;
     setIsDeletingKey(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/keys/${deleteKeyModal.keyId}`, {
+      const res = await fetch(`${getApiUrl()}/api/keys/${deleteKeyModal.keyId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id })
@@ -330,7 +332,7 @@ export default function DeveloperPage() {
   const handleDeleteWebhook = async (id: string) => {
     if (!confirm("Delete this webhook listener?")) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/webhooks/${id}`, {
+      const res = await fetch(`${getApiUrl()}/api/webhooks/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {

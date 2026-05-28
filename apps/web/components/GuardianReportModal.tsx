@@ -7,6 +7,7 @@ import { FaGithub } from "react-icons/fa";
 import { supabase } from "../lib/supabase";
 import TrendChart from "./TrendChart";
 import dynamic from "next/dynamic";
+import { getApiUrl } from "../lib/api";
 const ExportPDF = dynamic(() => import("./ExportPDF"), { ssr: false });
 
 interface GuardianReportModalProps {
@@ -31,7 +32,7 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
       const fetchHistory = async () => {
         setLoading(true);
         try {
-          const res = await fetch(`http://localhost:8080/api/history/site/${siteId}`);
+          const res = await fetch(`${getApiUrl()}/api/history/site/${siteId}`);
           if (res.ok) {
             const data = await res.json();
             const formatted = data.map((d: any) => ({
@@ -49,7 +50,7 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
       };
       const fetchBenchmarks = async () => {
         try {
-          const res = await fetch(`http://localhost:8080/api/monitoring/${siteId}/benchmarks`);
+          const res = await fetch(`${getApiUrl()}/api/monitoring/${siteId}/benchmarks`);
           if (res.ok) {
             const data = await res.json();
             setBenchmarks(data);
@@ -73,7 +74,7 @@ export default function GuardianReportModal({ isOpen, onClose, siteId, url, curr
     setPrUrl(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const res = await fetch('http://localhost:8080/api/remediation/github/fix', {
+      const res = await fetch(`${getApiUrl()}/api/remediation/github/fix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
