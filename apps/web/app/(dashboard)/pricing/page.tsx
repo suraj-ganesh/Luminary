@@ -23,6 +23,7 @@ import NotificationBell from "../../../components/NotificationBell";
 
 export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -33,6 +34,14 @@ export default function PricingPage() {
         router.push("/login");
       } else {
         setUser(user);
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (profileData) {
+          setProfile(profileData);
+        }
       }
       setLoading(false);
     };
@@ -46,6 +55,9 @@ export default function PricingPage() {
 
   const handleUpgrade = async (planName: string) => {
     if (planName === "Free") return;
+    const isCurrentPlan = (profile?.plan || 'free').toLowerCase() === planName.toLowerCase();
+    if (isCurrentPlan) return;
+
     if (planName === "Enterprise") {
       window.location.href = "mailto:sales@luminary.com";
       return;
@@ -162,56 +174,76 @@ export default function PricingPage() {
 
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch pb-20">
-            {plans.map((plan, i) => (
-              <motion.div 
-                key={plan.name}
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + (i * 0.1), duration: 0.7 }}
-                className={`h-full relative flex flex-col p-10 rounded-[2.5rem] shadow-xl border ${plan.popular ? 'bg-black text-white border-black/10 shadow-2xl shadow-black/20 lg:scale-105 z-10' : 'bg-white/80 backdrop-blur-md text-[#1a1a1a] border-white'}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#3b83f5] to-[#2ecac5] text-white text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
-                    Most Popular
-                  </div>
-                )}
-                
-                <div className="mb-8">
-                  <div className={`p-4 w-fit rounded-2xl mb-6 ${plan.popular ? 'bg-white/10' : 'bg-black/5'}`}>
-                    {plan.icon}
-                  </div>
-                  <h3 className="text-2xl font-bold tracking-tight mb-2">{plan.name}</h3>
-                  <p className={`text-sm leading-relaxed ${plan.popular ? 'text-white/60' : 'text-muted-foreground/80'}`}>{plan.description}</p>
-                </div>
-
-                <div className="mb-10 flex items-end gap-2">
-                  <span className="text-6xl font-light tracking-tighter leading-none">{plan.price}</span>
-                  {plan.price !== "Custom" && <span className={`text-sm mb-1 font-bold tracking-widest uppercase ${plan.popular ? 'text-white/40' : 'text-muted-foreground/40'}`}>/month</span>}
-                </div>
-
-                <ul className="space-y-5 mb-10 flex-1">
-                  {plan.features.map((feature, j) => (
-                    <li key={j} className="flex items-start gap-4">
-                      <div className={`mt-0.5 rounded-full p-1 shrink-0 ${plan.popular ? 'bg-white/10' : 'bg-black/5'}`}>
-                        <Check className="h-3 w-3" />
-                      </div>
-                      <span className={`text-sm font-medium ${plan.popular ? 'text-white/90' : 'text-[#1a1a1a]/80'}`}>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button 
-                  onClick={() => handleUpgrade(plan.name)}
-                  className={`w-full py-4 rounded-2xl flex items-center justify-center text-[11px] font-bold uppercase tracking-widest transition-all ${
-                    plan.popular 
-                      ? 'bg-white text-black hover:bg-white/90' 
-                      : 'bg-black text-white hover:bg-black/90'
+            {plans.map((plan, i) => {
+              const isCurrentPlan = (profile?.plan || 'free').toLowerCase() === plan.name.toLowerCase();
+              return (
+                <motion.div 
+                  key={plan.name}
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + (i * 0.1), duration: 0.7 }}
+                  className={`h-full relative flex flex-col p-10 rounded-[2.5rem] shadow-xl border transition-all ${
+                    isCurrentPlan 
+                      ? plan.popular
+                        ? 'bg-black text-white border-emerald-500/50 shadow-2xl shadow-emerald-500/10 lg:scale-105 z-10'
+                        : 'bg-white/90 backdrop-blur-md text-[#1a1a1a] border-emerald-500/40 shadow-emerald-500/5'
+                      : plan.popular 
+                        ? 'bg-black text-white border-black/10 shadow-2xl shadow-black/20 lg:scale-105 z-10' 
+                        : 'bg-white/80 backdrop-blur-md text-[#1a1a1a] border-white'
                   }`}
                 >
-                  {plan.buttonText}
-                </button>
-              </motion.div>
-            ))}
+                  {isCurrentPlan ? (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#2ecac5] to-[#2ecc71] text-white text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                      <Check className="h-2.5 w-2.5" /> Current Plan
+                    </div>
+                  ) : plan.popular ? (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#3b83f5] to-[#2ecac5] text-white text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                      Most Popular
+                    </div>
+                  ) : null}
+                  
+                  <div className="mb-8">
+                    <div className={`p-4 w-fit rounded-2xl mb-6 ${plan.popular ? 'bg-white/10' : 'bg-black/5'}`}>
+                      {plan.icon}
+                    </div>
+                    <h3 className="text-2xl font-bold tracking-tight mb-2">{plan.name}</h3>
+                    <p className={`text-sm leading-relaxed ${plan.popular ? 'text-white/60' : 'text-muted-foreground/80'}`}>{plan.description}</p>
+                  </div>
+
+                  <div className="mb-10 flex items-end gap-2">
+                    <span className="text-6xl font-light tracking-tighter leading-none">{plan.price}</span>
+                    {plan.price !== "Custom" && <span className={`text-sm mb-1 font-bold tracking-widest uppercase ${plan.popular ? 'text-white/40' : 'text-muted-foreground/40'}`}>/month</span>}
+                  </div>
+
+                  <ul className="space-y-5 mb-10 flex-1">
+                    {plan.features.map((feature, j) => (
+                      <li key={j} className="flex items-start gap-4">
+                        <div className={`mt-0.5 rounded-full p-1 shrink-0 ${plan.popular ? 'bg-white/10' : 'bg-black/5'}`}>
+                          <Check className="h-3 w-3" />
+                        </div>
+                        <span className={`text-sm font-medium ${plan.popular ? 'text-white/90' : 'text-[#1a1a1a]/80'}`}>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button 
+                    onClick={() => handleUpgrade(plan.name)}
+                    disabled={isCurrentPlan}
+                    className={`w-full py-4 rounded-2xl flex items-center justify-center text-[11px] font-bold uppercase tracking-widest transition-all ${
+                      isCurrentPlan
+                        ? plan.popular
+                          ? 'bg-white/10 text-white/50 border border-white/10 cursor-default'
+                          : 'bg-black/5 text-black/40 border border-black/5 cursor-default'
+                        : plan.popular 
+                          ? 'bg-white text-black hover:bg-white/90' 
+                          : 'bg-black text-white hover:bg-black/90'
+                    }`}
+                  >
+                    {isCurrentPlan ? "Current Plan" : plan.name === "Free" ? "Basic Plan" : plan.buttonText}
+                  </button>
+                </motion.div>
+              );
+            })}
           </div>
 
         </div>
