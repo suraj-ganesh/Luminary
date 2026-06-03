@@ -147,7 +147,7 @@ export default function Home() {
     const [tab, setTab] = useState<'contrast' | 'alt' | 'keyboard'>('contrast');
     const [showAfter, setShowAfter] = useState(true);
 
-    const samples: Record<string, { before: string; after: string; explain: string }> = {
+    const samples: Record<'contrast' | 'alt' | 'keyboard', { before: string; after: string; explain: string }> = {
       contrast: {
         before: `<button style="background:#777;color:#999;padding:8px 16px;border-radius:6px;">Click me</button>`,
         after: `<button style="background:#0b5fff;color:#fff;padding:8px 16px;border-radius:6px;">Primary action</button>`,
