@@ -186,7 +186,7 @@ export default function Home() {
           </div>
           <div className="p-4 bg-white rounded-lg border border-black/5">
             <div className="text-[10px] font-bold uppercase tracking-widest mb-2">AI Patched</div>
-            <pre className="text-xs overflow-auto p-2 rounded bg-black/5 text-white">{current.after}</pre>
+            <pre className="text-xs overflow-auto p-2 rounded bg-black/5 text-black">{current.after}</pre>
           </div>
         </div>
 
