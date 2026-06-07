@@ -65,8 +65,8 @@ router.post('/create-checkout-session', async (req: Request, res: Response) => {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/pricing`,
+      success_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app:3000'}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app:3000'}/pricing`,
       metadata: { userId },
     });
 
@@ -191,7 +191,7 @@ router.post('/create-portal-session', async (req: Request, res: Response) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
-      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile`,
+      return_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app:3000'}/profile`,
     });
 
     return res.status(200).json({ url: session.url });

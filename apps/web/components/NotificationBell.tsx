@@ -2,15 +2,31 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import { Bell, CheckCircle2, AlertTriangle, Info, ShieldCheck } from "lucide-react";
+import { Bell, CheckCircle2, AlertTriangle, Info, ShieldCheck, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { getApiUrl } from "../lib/api";
+
+const extractUrl = (title: string, body: string): string | null => {
+  const urlRegex = /(https?:\/\/[^\s]+)/;
+  let match = title.match(urlRegex);
+  if (match) {
+    let url = match[0].trim();
+    return url.replace(/[.,;%]$/, "");
+  }
+  match = body.match(urlRegex);
+  if (match) {
+    let url = match[0].trim();
+    return url.replace(/[.,;%]$/, "");
+  }
+  return null;
+};
 
 export default function NotificationBell({ userId }: { userId: string }) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
+  const [loadingNotifId, setLoadingNotifId] = useState<string | null>(null);
 
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -82,6 +98,69 @@ export default function NotificationBell({ userId }: { userId: string }) {
     }
   };
 
+  const handleNotificationClick = async (notif: any) => {
+    // 1. Mark as read if not already read
+    if (!notif.read) {
+      await markAsRead(notif.id);
+    }
+
+    // 2. Extract URL and find the scan
+    const url = extractUrl(notif.title, notif.body);
+    if (!url) {
+      // If no URL could be parsed, just close the feed (already marked read)
+      setIsOpen(false);
+      return;
+    }
+
+    setLoadingNotifId(notif.id);
+    try {
+      let scanId: string | null = null;
+
+      // Try with exact URL first
+      const { data: exactData } = await supabase
+        .from('scans')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('url', url)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (exactData) {
+        scanId = exactData.id;
+      } else {
+        // Try with alternative trailing slash configuration
+        const alternativeUrl = url.endsWith('/') 
+          ? url.slice(0, -1) 
+          : `${url}/`;
+
+        const { data: altData } = await supabase
+          .from('scans')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('url', alternativeUrl)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (altData) {
+          scanId = altData.id;
+        }
+      }
+
+      if (scanId) {
+        setIsOpen(false);
+        router.push(`/report/${scanId}`);
+      } else {
+        alert(`No scan report found for ${url}.`);
+      }
+    } catch (error) {
+      console.error("Error fetching scan for notification:", error);
+    } finally {
+      setLoadingNotifId(null);
+    }
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'success': return <CheckCircle2 className="h-5 w-5 text-green-500" />;
@@ -142,11 +221,15 @@ export default function NotificationBell({ userId }: { userId: string }) {
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => !notif.read && markAsRead(notif.id)}
-                      className={`w-full p-6 rounded-[2rem] transition-all flex items-start gap-6 text-left group border ${notif.read ? 'bg-transparent border-transparent opacity-60' : 'bg-white border-black/5 shadow-sm hover:shadow-md cursor-pointer'}`}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`w-full p-6 rounded-[2rem] transition-all flex items-start gap-6 text-left group border cursor-pointer ${notif.read ? 'bg-transparent border-transparent opacity-60 hover:bg-black/5' : 'bg-white border-black/5 shadow-sm hover:shadow-md'}`}
                     >
                       <div className={`mt-1 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${notif.read ? 'bg-black/5' : 'bg-black/5 group-hover:bg-black group-hover:text-white transition-colors'}`}>
-                        {getIcon(notif.type)}
+                        {loadingNotifId === notif.id ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-black" />
+                        ) : (
+                          getIcon(notif.type)
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
