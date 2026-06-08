@@ -65,8 +65,8 @@ router.post('/create-checkout-session', async (req: Request, res: Response) => {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app:3000'}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app:3000'}/pricing`,
+      success_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app'}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://ai-luminary.vercel.app'}/pricing`,
       metadata: { userId },
     });
 
