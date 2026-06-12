@@ -72,8 +72,9 @@ export default function PricingPage() {
 
       // Using the Product ID provided: prod_URw4460Q1SRLAX
       const PRODUCT_ID = "prod_URw4460Q1SRLAX";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stripe/create-checkout-session`, {
+      const response = await fetch(`${apiUrl}/api/stripe/create-checkout-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -86,6 +87,8 @@ export default function PricingPage() {
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        console.error("Upgrade failed: no redirect URL returned", data);
       }
     } catch (error) {
       console.error("Upgrade failed:", error);

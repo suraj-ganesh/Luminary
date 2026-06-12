@@ -111,7 +111,8 @@ export default function ProfilePage() {
 
   const handleManageSubscription = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stripe/create-portal-session`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+      const response = await fetch(`${apiUrl}/api/stripe/create-portal-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id })
@@ -119,6 +120,8 @@ export default function ProfilePage() {
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        console.error("Failed to open billing portal: no redirect URL returned", data);
       }
     } catch (error) {
       console.error("Failed to open billing portal:", error);
